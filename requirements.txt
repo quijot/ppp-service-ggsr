@@ -1,0 +1,30 @@
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+jinja2==3.1.4
+pydantic-settings==2.2.1
+
+# Cola de tareas
+celery==5.4.0
+redis==5.0.4
+
+# HTTP client (para comunicación con NRCan)
+requests==2.31.0
+requests-toolbelt==0.10.1
+urllib3==1.26.18
+
+# GNSS / geodesia
+geojson==3.2.0
+geographiclib==2.1
+
+# gnsstime: instalá desde el repo correspondiente
+# Si está en PyPI:
+gnsstime
+
+# Paquetes propios (calc2, itrf2posgar, geodata) se montan vía ppp_dir
+# No van acá — se agregan al sys.path en tiempo de ejecución
+
+# PostgreSQL (preparado para cuando lo actives)
+# asyncpg==0.29.0
+# sqlalchemy[asyncio]==2.0.30

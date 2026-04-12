@@ -1,0 +1,11 @@
+.vscode
+.env*
+__pycache__/
+*.py[cod]
+*.pickle
+/tmp/
+*.zip
+*.sum
+idw.geojson
+.DS_Store
+epgps

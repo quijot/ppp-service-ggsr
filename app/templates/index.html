@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PPP Experimental — GGSR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #2d333b;
+      --accent: #3fb950;
+      /* verde geodésico */
+      --accent2: #58a6ff;
+      /* azul satélite */
+      --warn: #d29922;
+      --danger: #f85149;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --mono: 'Space Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+      --r: 4px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 15px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-weight: 300;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: .9rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .header-brand {
+      display: flex;
+      flex-direction: column;
+      gap: .1rem;
+    }
+
+    .header-title {
+      font-family: var(--mono);
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .header-sub {
+      font-size: .72rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+
+    .header-right a {
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      transition: border-color .2s, color .2s;
+    }
+
+    .header-right a:hover {
+      border-color: var(--accent2);
+      color: var(--accent2);
+    }
+
+    .badge-frame {
+      font-family: var(--mono);
+      font-size: .62rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+
+    /* ── Layout ── */
+    main {
+      display: grid;
+      grid-template-columns: 370px 1fr;
+      height: calc(100 - 57px);
+    }
+
+    /* ── Panel ── */
+    .panel {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: .65rem;
+      font-family: var(--mono);
+      font-size: .65rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: color .2s, border-color .2s;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: var(--text);
+    }
+
+    .tab-content {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    .panel-section {
+      padding: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: .62rem;
+      color: var(--muted);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: .9rem;
+    }
+
+    /* Dropzone */
+    .dropzone {
+      border: 1px dashed var(--border);
+      border-radius: var(--r);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(63, 185, 80, .04);
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .dropzone-icon {
+      font-size: 1.8rem;
+      color: var(--muted);
+      margin-bottom: .4rem;
+    }
+
+    .dropzone p {
+      font-size: .75rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .dropzone .filename {
+      margin-top: .6rem;
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--accent);
+      word-break: break-all;
+    }
+
+    /* ── Form fields ── */
+    .field-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .6rem;
+      margin-top: .75rem;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+    }
+
+    .field.full {
+      grid-column: 1/-1;
+    }
+
+    label {
+      font-family: var(--mono);
+      font-size: .6rem;
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    input[type=text],
+    input[type=number],
+    input[type=date] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: .8rem;
+      padding: .4rem .6rem;
+      width: 100%;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    input:focus {
+      border-color: var(--accent2);
+    }
+
+    .btn-submit {
+      width: 100%;
+      margin-top: 1rem;
+      padding: .6rem 1rem;
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      border-radius: var(--r);
+      font-family: var(--mono);
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+
+    .btn-submit:hover {
+      opacity: .85;
+    }
+
+    .btn-submit:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+    }
+
+    /* ── Status ── */
+    .status-area {
+      flex: 1;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: .8rem;
+      overflow-y: auto;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-family: var(--mono);
+      font-size: .72rem;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .dot.processing {
+      background: var(--accent2);
+      animation: pulse 1.2s infinite;
+    }
+
+    .dot.done {
+      background: var(--accent);
+    }
+
+    .dot.error {
+      background: var(--danger);
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .25;
+      }
+    }
+
+    .progress-wrap {
+      height: 2px;
+      background: var(--border);
+      border-radius: 1px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent2);
+      width: 0;
+      transition: width .4s;
+    }
+
+    .progress-bar.indeterminate {
+      animation: indet 1.5s infinite linear;
+      width: 35%;
+    }
+
+    @keyframes indet {
+      0% {
+        transform: translateX(-100%);
+      }
+
+      100% {
+        transform: translateX(400%);
+      }
+    }
+
+    /* ── Result ── */
+    .result-coords {
+      background: rgba(63, 185, 80, .06);
+      border: 1px solid rgba(63, 185, 80, .2);
+      border-radius: var(--r);
+      padding: .75rem 1rem;
+      margin-bottom: .75rem;
+    }
+
+    .site-name {
+      font-family: var(--mono);
+      font-size: .62rem;
+      color: var(--accent);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: .3rem;
+    }
+
+    .coords-val {
+      font-family: var(--mono);
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: .02em;
+    }
+
+    .coords-hgt {
+      font-family: var(--mono);
+      font-size: .78rem;
+      color: var(--muted);
+      margin-top: .2rem;
+    }
+
+    .coords-ref {
+      font-size: .67rem;
+      color: var(--muted);
+      margin-top: .25rem;
+    }
+
+    .quality-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      font-family: var(--mono);
+      font-size: .62rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: .4rem;
+    }
+
+    .quality-badge.good {
+      background: rgba(63, 185, 80, .12);
+      color: var(--accent);
+      border: 1px solid rgba(63, 185, 80, .25);
+    }
+
+    .quality-badge.warn {
+      background: rgba(210, 153, 34, .12);
+      color: var(--warn);
+      border: 1px solid rgba(210, 153, 34, .25);
+    }
+
+    .quality-badge.poor {
+      background: rgba(248, 81, 73, .10);
+      color: var(--danger);
+      border: 1px solid rgba(248, 81, 73, .25);
+    }
+
+    /* ── PPP origin block ── */
+    .ppp-origin {
+      background: rgba(88, 166, 255, .05);
+      border: 1px solid rgba(88, 166, 255, .15);
+      border-radius: var(--r);
+      padding: .65rem .9rem;
+      margin-bottom: .6rem;
+    }
+
+    .ppp-origin .ppp-label {
+      font-family: var(--mono);
+      font-size: .6rem;
+      color: var(--accent2);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: .35rem;
+    }
+
+    .ppp-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: .75rem;
+      padding: .15rem 0;
+    }
+
+    .ppp-key {
+      color: var(--muted);
+    }
+
+    .ppp-val {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--text);
+    }
+
+    .ppp-sigma {
+      font-size: .68rem;
+      color: var(--warn);
+      margin-left: .3rem;
+    }
+
+    .report-section {
+      border-top: 1px solid var(--border);
+      padding-top: .65rem;
+      margin-top: .15rem;
+    }
+
+    .report-section h5 {
+      font-family: var(--mono);
+      font-size: .58rem;
+      color: var(--muted);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: .45rem;
+    }
+
+    .report-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: .75rem;
+      padding: .18rem 0;
+      border-bottom: 1px solid rgba(45, 51, 59, .4);
+    }
+
+    .report-row:last-child {
+      border-bottom: none;
+    }
+
+    .report-key {
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: .2rem;
+    }
+
+    .report-val {
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--text);
+      text-align: right;
+    }
+
+    /* ── CV desglose ── */
+    .cv-breakdown {
+      display: flex;
+      gap: .5rem;
+      margin-top: .3rem;
+      flex-wrap: wrap;
+    }
+
+    .cv-chip {
+      font-family: var(--mono);
+      font-size: .62rem;
+      padding: 1px 7px;
+      border-radius: 3px;
+      background: rgba(45, 51, 59, .6);
+      color: var(--muted);
+    }
+
+    .cv-chip span {
+      color: var(--text);
+    }
+
+    /* ── Tooltip ── */
+    .tooltip-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .tooltip-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 1px solid var(--muted);
+      font-size: .58rem;
+      color: var(--muted);
+      cursor: help;
+      margin-left: 3px;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    .tooltip-box {
+      display: none;
+      position: absolute;
+      left: 18px;
+      top: -4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: .5rem .7rem;
+      font-size: .7rem;
+      color: var(--text);
+      line-height: 1.5;
+      width: 220px;
+      z-index: 100;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
+    }
+
+    .tooltip-wrap:hover .tooltip-box {
+      display: block;
+    }
+
+    .ep-list {
+      list-style: none;
+      font-family: var(--mono);
+      font-size: .66rem;
+      color: var(--muted);
+      margin-top: .25rem;
+    }
+
+    .ep-list li {
+      padding: 1px 0;
+    }
+
+    .ep-list li span {
+      color: var(--accent2);
+    }
+
+    .error-msg {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--danger);
+      background: rgba(248, 81, 73, .07);
+      border: 1px solid rgba(248, 81, 73, .2);
+      border-radius: var(--r);
+      padding: .65rem .9rem;
+      line-height: 1.5;
+    }
+
+    /* ── Mapa ── */
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #0d1117;
+    }
+
+    .leaflet-container {
+      background: #1a2332;
+    }
+
+    /* Etiquetas Leaflet personalizadas */
+    .ep-label {
+      background: transparent;
+      border: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: #93c5fd;
+      white-space: nowrap;
+      text-shadow: 0 1px 3px #0d1117, 0 0 6px #0d1117;
+      pointer-events: none;
+    }
+
+    .base-label {
+      background: transparent;
+      border: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #4ade80;
+      white-space: nowrap;
+      text-shadow: 0 1px 4px #0d1117, 0 0 8px #0d1117;
+      pointer-events: none;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: .5rem 1.5rem;
+      font-family: var(--mono);
+      font-size: .6rem;
+      color: var(--muted);
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    footer a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--accent2);
+    }
+
+    @media(max-width:768px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 350px;
+        height: auto;
+      }
+
+      .panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        max-height: 60vh;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="header-brand">
+      <span class="header-title">Servicio PPP Experimental · GGSR</span>
+      <span class="header-sub">NRCan CSRS-PPP + Transformación ITRF → POSGAR07</span>
+    </div>
+    <div class="header-right">
+      <!--<span class="badge-frame">POSGAR07 · IGS05 · 2006.632</span>-->
+      <a href="/como-funciona" target="_blank">¿Cómo funciona?</a>
+    </div>
+  </header>
+
+  <main>
+    <aside class="panel">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="rinex">📡 PPP + Transformación</button>
+        <button class="tab-btn" data-tab="direct">🔄 Solo Transformación</button>
+      </div>
+
+      <!-- ── Pestaña RINEX ── -->
+      <div class="tab-content active" id="tab-rinex">
+        <div class="panel-section">
+          <div class="section-label">Archivo RINEX</div>
+          <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+            <div class="dropzone" id="dropzone">
+              <input type="file" name="rinex_file" id="rinex-input" accept=".obs,.rnx,.gz,.zip,.Z,.??d,.??o">
+              <div class="dropzone-icon">📡</div>
+              <p>Arrastrá el archivo RINEX o hacé clic para seleccionar</p>
+              <p style="margin-top:.3rem;font-size:.68rem">Formatos: .obs .rnx .gz .zip .Z .??d .??o · Máx 20 MB</p>
+              <div class="filename" id="filename-display"></div>
+            </div>
+            <button class="btn-submit" type="submit" id="submit-btn">Procesar</button>
+          </form>
+        </div>
+
+        <div class="status-area" id="status-area">
+          <div class="status-indicator" id="status-indicator" style="display:none">
+            <div class="dot" id="status-dot"></div>
+            <span id="status-text"></span>
+          </div>
+          <div class="progress-wrap" id="progress-wrap" style="display:none">
+            <div class="progress-bar indeterminate" id="progress-bar"></div>
+          </div>
+          <div id="result-container"></div>
+        </div>
+      </div>
+
+      <!-- ── Pestaña Transformación directa ── -->
+      <div class="tab-content" id="tab-direct">
+        <div class="panel-section">
+          <div class="section-label">Coordenadas ITRF / IGS de origen</div>
+          <form id="transform-form">
+            <div class="field-group">
+              <div class="field full">
+                <label>Latitud (grados decimales, Sur negativo)</label>
+                <input type="number" id="t-lat" step="any" placeholder="-31.7658..." required>
+              </div>
+              <div class="field full">
+                <label>Longitud (grados decimales, Oeste negativo)</label>
+                <input type="number" id="t-lon" step="any" placeholder="-61.3840..." required>
+              </div>
+              <div class="field full">
+                <label>Altura elipsoidal (m) — opcional</label>
+                <input type="number" id="t-hgt" step="any" placeholder="73.939">
+              </div>
+              <div class="field full">
+                <label>Fecha de observación</label>
+                <input type="date" id="t-date" required>
+              </div>
+            </div>
+            <button class="btn-submit" type="submit" id="transform-btn">Transformar a POSGAR07</button>
+          </form>
+        </div>
+        <div class="status-area" id="transform-status-area">
+          <div class="status-indicator" id="t-status-indicator" style="display:none">
+            <div class="dot" id="t-status-dot"></div>
+            <span id="t-status-text"></span>
+          </div>
+          <div id="transform-result"></div>
+        </div>
+      </div>
+    </aside>
+
+    <div id="map"></div>
+  </main>
+
+  <footer>
+    <span>GGSR · Grupo de Geodesia Satelital de Rosario</span>
+    <span>NRCan CSRS-PPP v5 · IDW CV-LOO</span>
+    <span><a href="/como-funciona" target="_blank">Documentación</a></span>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // ── Tooltips de términos geodésicos ──────────────────────────────────────────
+    const GLOSARIO = {
+      "PPP": "Posicionamiento de Punto Preciso. Técnica GNSS que determina coordenadas absolutas con precisión centimétrica usando órbitas y relojes satelitales precisos, sin estación de referencia cercana.",
+      "EP": "Estación Permanente de la red RAMSAC. Receptor GNSS con coordenadas POSGAR07 oficiales conocidas con muy alta precisión.",
+      "IDW": "Inverse Distance Weighted. Método de interpolación donde cada EP pondera inversamente proporcional a su distancia al punto de interés.",
+      "CV": "Cross-Validation Leave-One-Out. Se omite cada EP y se predice su delta con las demás; el error medio estima la calidad de la interpolación.",
+      "POSGAR07": "Marco de referencia geodésico oficial de Argentina. Equivale a ITRF2005 para la época 2006.632.",
+      "IGS20": "Marco de referencia del IGS (International GNSS Service), compatible con ITRF2020. Es el marco que usa NRCan CSRS-PPP.",
+      "ITRF": "International Terrestrial Reference Frame. Familia de marcos globales del IERS. Las diferencias entre versiones implican pequeñas correcciones de posición.",
+      "σ(95%)": "Incertidumbre formal del resultado PPP al 95% de confianza, expresada en metros. Es el piso de precisión antes de la transformación ITRF→POSGAR07.",
+      "wk": "Semana GPS. El tiempo GPS se cuenta en semanas desde el 6 de enero de 1980.",
+      "n": "Cantidad de EP más cercanas usadas en la interpolación IDW.",
+      "p": "Exponente de distancia en IDW. Mayor p da más peso a las EP más cercanas.",
+    };
+
+    function makeTip(term) {
+      const def = GLOSARIO[term];
+      if (!def) return term;
+      return `${term}<span class="tooltip-wrap"><span class="tooltip-trigger">?</span><span class="tooltip-box"><strong>${term}</strong>: ${def}</span></span>`;
+    }
+
+    // ── Mapa ──────────────────────────────────────────────────────────────────────
+    const map = L.map('map', { center: [-38, -65], zoom: 4 });
+
+    L.tileLayer('https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/argenmap_oscuro@EPSG%3A3857@png/{z}/{x}/{-y}.png', {
+      minZoom: 1, maxZoom: 20,
+      attribution: '&copy; <a href="https://ign.gob.ar/" target="_blank">IGN</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+    }).addTo(map);
+
+    let geojsonLayer = null;
+    let labelLayers = [];
+
+    function clearMap() {
+      if (geojsonLayer) { map.removeLayer(geojsonLayer); geojsonLayer = null; }
+      labelLayers.forEach(l => map.removeLayer(l));
+      labelLayers = [];
+    }
+
+    function renderGeoJSON(geojson, lat, lon) {
+      clearMap();
+
+      geojsonLayer = L.geoJSON(geojson, {
+        pointToLayer(feature, latlng) {
+          const isBase = feature.properties.is_base;
+          return L.circleMarker(latlng, {
+            radius: isBase ? 10 : 6,
+            fillColor: isBase ? '#3fb950' : '#58a6ff',
+            color: '#0d1117',
+            weight: 1.5,
+            fillOpacity: .9,
+          });
+        },
+        style(f) {
+          if (f.geometry.type === 'LineString')
+            return { color: '#3fb950', weight: 1.2, opacity: .5, dashArray: '4 4' };
+        },
+        onEachFeature(f, layer) {
+          if (f.properties.description) layer.bindPopup(f.properties.description, { maxWidth: 220 });
+        }
+      }).addTo(map);
+
+      // Etiquetas personalizadas sobre cada punto
+      geojson.features.forEach(f => {
+        if (f.geometry.type !== 'Point') return;
+        const [flon, flat] = f.geometry.coordinates;
+        const isBase = f.properties.is_base;
+        const lbl = L.marker([flat, flon], {
+          icon: L.divIcon({
+            className: isBase ? 'base-label' : 'ep-label',
+            html: isBase ? `▲ ${f.properties.name}` : f.properties.name,
+            iconAnchor: isBase ? [-12, 8] : [-8, 6],
+          }),
+          interactive: false,
+        }).addTo(map);
+        labelLayers.push(lbl);
+      });
+      map.flyTo([lat, lon], 9, { duration: 1.2 });
+    }
+
+    // ── Tabs ──────────────────────────────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ── Builder de resultado ──────────────────────────────────────────────────────
+    function buildResultHTML(d, inputLabel) {
+      // Calidad vectorial
+      let qClass = 'good', qLabel = '';
+      if (d.cv_error_cm < 0) { qClass = 'warn'; qLabel = 'Calidad no estimada (pocas EP)'; }
+      else if (d.cv_error_cm < 5) { qClass = 'good'; qLabel = `Calidad buena · error CV ${d.cv_error_cm.toFixed(1)} cm`; }
+      else if (d.cv_error_cm < 10) { qClass = 'warn'; qLabel = `Calidad moderada · error CV ${d.cv_error_cm.toFixed(1)} cm`; }
+      else { qClass = 'poor'; qLabel = `Calidad baja · error CV ${d.cv_error_cm.toFixed(1)} cm`; }
+
+      // Desglose CV por componente
+      let cvBreakdown = '';
+      if (d.cv_error_cm >= 0) {
+        cvBreakdown = `
+      <div class="cv-breakdown">
+        <div class="cv-chip">Δlat <span>±${(d.cv_error_lat_cm || 0).toFixed(1)} cm</span></div>
+        <div class="cv-chip">Δlon <span>±${(d.cv_error_lon_cm || 0).toFixed(1)} cm</span></div>
+        <div class="cv-chip">vector <span>±${d.cv_error_cm.toFixed(1)} cm</span></div>
+      </div>`;
+      }
+
+      // EP usadas
+      const epRows = Object.entries(d.ep_nearest || {})
+        .map(([ep, dist]) => `<li><span>${ep}</span> · ${(+dist).toFixed(1)} km</li>`).join('');
+
+      // Bloque origen PPP (solo si hay sigmas)
+      let pppBlock = '';
+      if (d.sigma_lat || d.sigma_lon) {
+        const sigLat = (d.sigma_lat * 100).toFixed(1);
+        const sigLon = (d.sigma_lon * 100).toFixed(1);
+        const sigHgt = (d.sigma_hgt * 100).toFixed(1);
+        pppBlock = `
+<div class="ppp-origin">
+  <div class="ppp-label">📡 Origen ${makeTip('PPP')} — ${makeTip('IGS20')}</div>
+  <div class="ppp-row"><span class="ppp-key">Latitud</span>
+    <span class="ppp-val">${d.lat_ppp_dms || d.lat_input_dms}<span class="ppp-sigma">±${sigLat} cm ${makeTip('σ(95%)')}</span></span></div>
+  <div class="ppp-row"><span class="ppp-key">Longitud</span>
+    <span class="ppp-val">${d.lon_ppp_dms || d.lon_input_dms}<span class="ppp-sigma">±${sigLon} cm</span></span></div>
+  <div class="ppp-row"><span class="ppp-key">Altura elips.</span>
+    <span class="ppp-val">${d.hgt_str} m<span class="ppp-sigma">±${sigHgt} cm</span></span></div>
+  <div class="ppp-row"><span class="ppp-key">Semana ${makeTip('wk')}</span>
+    <span class="ppp-val">${d.obs_wk}</span></div>
+</div>`;
+      } else if (d.hgt_str) {
+        // Transformación directa: sin sigmas pero mostramos la entrada
+        pppBlock = `
+<div class="ppp-origin">
+  <div class="ppp-label">🔄 Coordenadas de entrada — ${makeTip('ITRF')} / ${makeTip('IGS20')}</div>
+  <div class="ppp-row"><span class="ppp-key">Latitud</span><span class="ppp-val">${d.lat_input_dms || d.lat_ppp_dms}</span></div>
+  <div class="ppp-row"><span class="ppp-key">Longitud</span><span class="ppp-val">${d.lon_input_dms || d.lon_ppp_dms}</span></div>
+  <div class="ppp-row"><span class="ppp-key">Altura elips.</span><span class="ppp-val">${d.hgt_str} m</span></div>
+  <div class="ppp-row"><span class="ppp-key">Semana ${makeTip('wk')}</span><span class="ppp-val">${d.obs_wk}</span></div>
+</div>`;
+      }
+
+      return `
+<div class="result-coords">
+  <div class="site-name">📍 ${(d.marker || 'PUNTO').toUpperCase()} — ${makeTip('POSGAR07')}</div>
+  <div class="coords-val">${d.lat_posgar_dms}</div>
+  <div class="coords-val">${d.lon_posgar_dms}</div>
+  ${d.hgt_str ? `<div class="coords-hgt">Alt. elips.: ${d.hgt_str} m <span style="font-size:.65rem;color:var(--muted)">(IGS20, sin transformar)</span></div>` : ''}
+  <div class="coords-ref">ITRF2005 · época 2006.632</div>
+  <div class="quality-badge ${qClass}">⬤ ${qLabel}</div>
+  ${cvBreakdown}
+</div>
+
+${pppBlock}
+
+<div class="report-section">
+  <h5>Transformación ${makeTip('IDW')} · ${makeTip('CV')}</h5>
+  <div class="report-row">
+    <span class="report-key">${makeTip('EP')} en ${makeTip('CV')}</span>
+    <span class="report-val">${d.n_ep_cv} estaciones</span>
+  </div>
+  <div class="report-row">
+    <span class="report-key">Config. óptima (${makeTip('n')}, ${makeTip('p')})</span>
+    <span class="report-val">n=${d.n_used}, p=${d.p_used}</span>
+  </div>
+  <div class="report-row">
+    <span class="report-key">Semana ${makeTip('wk')} usada</span>
+    <span class="report-val">${d.wk_used}</span>
+  </div>
+  <div class="report-row">
+    <span class="report-key">Radio de búsqueda</span>
+    <span class="report-val">${d.radius_km} km</span>
+  </div>
+  <div class="report-row" style="align-items:flex-start">
+    <span class="report-key">${makeTip('EP')} usadas (n=${d.n_used})</span>
+    <ul class="ep-list">${epRows}</ul>
+  </div>
+</div>
+`;
+    }
+
+    // ── Formulario RINEX ──────────────────────────────────────────────────────────
+    const dropzone = document.getElementById('dropzone');
+    const rinexInput = document.getElementById('rinex-input');
+    const fnDisplay = document.getElementById('filename-display');
+    rinexInput.addEventListener('change', () => { if (rinexInput.files[0]) fnDisplay.textContent = rinexInput.files[0].name; });
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault(); dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) { rinexInput.files = e.dataTransfer.files; fnDisplay.textContent = e.dataTransfer.files[0].name; };
+    });
+
+    // ── Estado ────────────────────────────────────────────────────────────────────
+    const form = document.getElementById('upload-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const statusInd = document.getElementById('status-indicator');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const progWrap = document.getElementById('progress-wrap');
+    const progBar = document.getElementById('progress-bar');
+    const resultCont = document.getElementById('result-container');
+    let pollInterval = null;
+
+    function setStatus(dot, text, prog, state) {
+      dot.style.display = 'flex'; dot.parentElement.style.display = 'flex';
+      const dotEl = dot.querySelector ? dot : statusDot;
+      statusInd.style.display = 'flex'; progWrap.style.display = 'block';
+      statusDot.className = 'dot ' + state; statusText.textContent = text;
+      if (state === 'done' || state === 'error') {
+        progBar.classList.remove('indeterminate');
+        progBar.style.width = state === 'done' ? '100%' : '0%';
+        progBar.style.background = state === 'done' ? 'var(--accent)' : 'var(--danger)';
+      } else {
+        progBar.classList.add('indeterminate');
+        progBar.style.background = 'var(--accent2)';
+      };
+    }
+    function setStatusRINEX(state, msg) {
+      statusInd.style.display = 'flex'; progWrap.style.display = 'block';
+      statusDot.className = 'dot ' + state; statusText.textContent = msg;
+      if (state === 'done' || state === 'error') {
+        progBar.classList.remove('indeterminate');
+        progBar.style.width = state === 'done' ? '100%' : '0%';
+        progBar.style.background = state === 'done' ? 'var(--accent)' : 'var(--danger)';
+      } else { progBar.classList.add('indeterminate'); progBar.style.background = 'var(--accent2)'; };
+    }
+
+    function startPolling(jobId) {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(async () => {
+        try {
+          const d = await fetch(`/api/status/${jobId}`).then(r => r.json());
+          if (d.status === 'done') {
+            clearInterval(pollInterval);
+            submitBtn.disabled = false;
+            setStatusRINEX('done', 'Procesamiento completado');
+            resultCont.innerHTML = buildResultHTML(d);
+            if (d.geojson && d.lat && d.lon)
+              renderGeoJSON(d.geojson, d.lat, d.lon);
+          } else if (d.status === 'error') {
+            clearInterval(pollInterval); submitBtn.disabled = false;
+            setStatusRINEX('error', 'Error en el procesamiento');
+            resultCont.innerHTML = `<div class="error-msg">${d.msg}</div>`;
+          } else { setStatusRINEX('processing', d.msg || 'Procesando...'); }
+        } catch (e) { };
+      }, 5000);
+    }
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!rinexInput.files[0]) { alert('Seleccioná un archivo RINEX primero.'); return; }
+      submitBtn.disabled = true; resultCont.innerHTML = ''; clearMap();
+      setStatusRINEX('processing', 'Subiendo archivo...');
+      try {
+        const resp = await fetch('/upload', { method: 'POST', body: new FormData(form), redirect: 'follow' });
+        const jobId = resp.url.split('/job/')[1];
+        if (!jobId) throw new Error('No se pudo obtener el ID del job.');
+        setStatusRINEX('processing', 'Enviando a NRCan CSRS-PPP...');
+        startPolling(jobId);
+      } catch (err) {
+        submitBtn.disabled = false;
+        setStatusRINEX('error', 'Error al enviar el archivo.');
+        resultCont.innerHTML = `<div class="error-msg">${err.message}</div>`;
+      };
+    });
+
+    // ── Formulario transformación directa ─────────────────────────────────────────
+    const transformForm = document.getElementById('transform-form');
+    const transformBtn = document.getElementById('transform-btn');
+    const tStatusInd = document.getElementById('t-status-indicator');
+    const tStatusDot = document.getElementById('t-status-dot');
+    const tStatusText = document.getElementById('t-status-text');
+    const transformRes = document.getElementById('transform-result');
+
+    function setTransformStatus(state, msg) {
+      tStatusInd.style.display = 'flex';
+      tStatusDot.className = 'dot ' + state;
+      tStatusText.textContent = msg;
+    }
+
+    transformForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const lat = document.getElementById('t-lat').value;
+      const lon = document.getElementById('t-lon').value;
+      const hgt = document.getElementById('t-hgt').value || '0';
+      const date = document.getElementById('t-date').value;
+      if (!lat || !lon || !date) { alert('Completá latitud, longitud y fecha.'); return; }
+
+      transformBtn.disabled = true; transformRes.innerHTML = ''; clearMap();
+      setTransformStatus('processing', 'Calculando transformación...');
+
+      try {
+        const body = new FormData();
+        body.append('lat', lat); body.append('lon', lon);
+        body.append('hgt', hgt); body.append('date', date);
+        const d = await fetch('/api/transform', { method: 'POST', body }).then(r => r.json());
+        if (d.status === 'done') {
+          setTransformStatus('done', 'Transformación completada');
+          // Para la pestaña directa no hay marker ni geojson de EP, construimos uno simple
+          const fakeGeojson = {
+            type: 'FeatureCollection',
+            features: [{
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [d.lon, d.lat] },
+              properties: { name: 'PUNTO', description: `<b>POSGAR07</b><br>${d.lat_posgar_dms}<br>${d.lon_posgar_dms}`, is_base: true }
+            }]
+          };
+          // Agregar EP al mapa si están disponibles
+          if (d.ep_nearest) {
+            // Solo marcamos el punto resultado, las EP requieren sus coords que no tenemos en este endpoint
+          }
+          transformRes.innerHTML = buildResultHTML({ ...d, marker: 'PUNTO' });
+          renderGeoJSON(fakeGeojson, d.lat, d.lon);
+        } else {
+          setTransformStatus('error', 'Error en la transformación');
+          transformRes.innerHTML = `<div class="error-msg">${d.detail || 'Error desconocido'}</div>`;
+        };
+      } catch (err) {
+        setTransformStatus('error', 'Error de red');
+        transformRes.innerHTML = `<div class="error-msg">${err.message}</div>`;
+      } finally {
+        transformBtn.disabled = false;
+      };
+    });
+
+    // ── Restaurar job si URL tiene /job/{id} ──────────────────────────────────────
+    (function () {
+      const match = window.location.pathname.match(/\/job\/([a-f0-9-]{36})/);
+      if (match) {
+        submitBtn.disabled = true;
+        setStatusRINEX('processing', 'Procesando...');
+        startPolling(match[1]);
+      };
+    })();
+  </script>
+</body>
+
+</html>

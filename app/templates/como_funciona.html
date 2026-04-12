@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>¿Cómo funciona? — PPP Experimental GGSR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #2d333b;
+      --accent: #3fb950; --accent2: #58a6ff; --warn: #d29922;
+      --text: #e6edf3; --muted: #8b949e;
+      --mono: 'Space Mono', monospace; --sans: 'DM Sans', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); font-weight: 300; line-height: 1.75; }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0.9rem 2rem;
+      display: flex; align-items: center; gap: 1rem;
+      position: sticky; top: 0; background: var(--bg); z-index: 10;
+    }
+    header a { font-family: var(--mono); font-size: 0.7rem; color: var(--accent); text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+    header .sep { color: var(--muted); }
+    header .page-title { font-family: var(--mono); font-size: 0.8rem; color: var(--text); }
+
+    .container { max-width: 780px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 3rem;
+    }
+    .toc h4 { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.75rem; }
+    .toc ol { padding-left: 1.2rem; }
+    .toc li { margin: 0.3rem 0; }
+    .toc a { color: var(--accent2); text-decoration: none; font-size: 0.85rem; }
+    .toc a:hover { text-decoration: underline; }
+
+    h1 { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; color: var(--accent); margin-bottom: 0.5rem; }
+    .lead { font-size: 1rem; color: var(--muted); font-style: italic; margin-bottom: 3rem; }
+
+    h2 {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin: 3rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    h2 .step-num {
+      display: inline-block;
+      background: var(--accent);
+      color: #0d1117;
+      font-size: 0.6rem;
+      padding: 1px 6px;
+      border-radius: 3px;
+      margin-right: 0.5rem;
+      vertical-align: middle;
+    }
+
+    p { margin-bottom: 1rem; color: var(--text); font-size: 0.92rem; }
+    strong { color: var(--accent2); font-weight: 500; }
+    em { color: var(--muted); }
+    code {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--accent);
+    }
+
+    .formula {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent2);
+      border-radius: 4px;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .formula .comment { color: var(--muted); font-style: italic; }
+
+    .callout {
+      background: rgba(88,166,255,0.06);
+      border: 1px solid rgba(88,166,255,0.2);
+      border-radius: 4px;
+      padding: 0.9rem 1.1rem;
+      margin: 1.25rem 0;
+      font-size: 0.88rem;
+    }
+    .callout.warn {
+      background: rgba(210,153,34,0.06);
+      border-color: rgba(210,153,34,0.25);
+    }
+    .callout strong { display: block; margin-bottom: 0.3rem; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .callout.warn strong { color: var(--warn); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.83rem;
+      margin: 1.25rem 0;
+    }
+    th {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 0.4rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.45rem 0.75rem;
+      border-bottom: 1px solid rgba(45,51,59,0.5);
+      vertical-align: top;
+    }
+    td:first-child { font-family: var(--mono); font-size: 0.75rem; color: var(--accent); }
+    tr:last-child td { border-bottom: none; }
+
+    .quality-table td:nth-child(2) { color: var(--muted); font-size: 0.8rem; }
+
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin: 1.5rem 0;
+    }
+    .pipeline-step {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(45,51,59,0.4);
+    }
+    .pipeline-step:last-child { border-bottom: none; }
+    .pipeline-num {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+      flex-shrink: 0;
+      padding-top: 0.1rem;
+      width: 1.5rem;
+    }
+    .pipeline-text { font-size: 0.87rem; }
+    .pipeline-text strong { display: block; margin-bottom: 0.15rem; color: var(--text); }
+    .pipeline-text span { color: var(--muted); font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/">← Volver al servicio</a>
+  <span class="sep">·</span>
+  <span class="page-title">¿Cómo funciona?</span>
+</header>
+
+<div class="container">
+
+  <h1>¿Cómo funciona?</h1>
+  <p class="lead">Documentación técnica del Servicio PPP Experimental del GGSR.<br>
+  Procesamiento RINEX con NRCan CSRS-PPP y transformación al marco de referencia oficial argentino POSGAR07.</p>
+
+  <div class="toc">
+    <h4>Contenido</h4>
+    <ol>
+      <li><a href="#pipeline">Pipeline general</a></li>
+      <li><a href="#ppp">¿Qué es PPP y qué devuelve NRCan?</a></li>
+      <li><a href="#marcos">Marcos de referencia: IGS20 y POSGAR07</a></li>
+      <li><a href="#ramsac">La red RAMSAC como puente entre marcos</a></li>
+      <li><a href="#idw">Interpolación IDW del campo de transformación</a></li>
+      <li><a href="#cv">Selección automática de parámetros por Cross-Validation</a></li>
+      <li><a href="#calidad">Interpretación del indicador de calidad</a></li>
+      <li><a href="#limitaciones">Limitaciones y contexto de uso</a></li>
+    </ol>
+  </div>
+
+  <!-- 1 -->
+  <h2 id="pipeline">Pipeline general</h2>
+  <p>El servicio encadena cuatro etapas automáticas desde la carga del archivo RINEX hasta la entrega de coordenadas POSGAR07:</p>
+  <div class="pipeline">
+    <div class="pipeline-step">
+      <div class="pipeline-num">01</div>
+      <div class="pipeline-text">
+        <strong>Envío a NRCan CSRS-PPP</strong>
+        <span>El archivo RINEX se envía a la API del Canadian Geodetic Survey. NRCan procesa las observaciones GNSS (GPS, GLONASS, Galileo) con órbitas y relojes precisos y devuelve coordenadas en IGS20 referidas a la época de las observaciones.</span>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="pipeline-num">02</div>
+      <div class="pipeline-text">
+        <strong>Parseo del archivo .sum</strong>
+        <span>NRCan devuelve un archivo de resultados en formato columnar v5.x. Se extraen la latitud y longitud estimadas (campo ESTIMATED de POS LAT/LON), la fecha de inicio de las observaciones (BEG) y el nombre del punto (MKR).</span>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="pipeline-num">03</div>
+      <div class="pipeline-text">
+        <strong>Transformación IGS20 → POSGAR07</strong>
+        <span>Las coordenadas IGS20 se transforman al marco oficial argentino POSGAR07 mediante interpolación IDW sobre la red RAMSAC. Los parámetros de la interpolación se optimizan automáticamente por Cross-Validation Leave-One-Out.</span>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="pipeline-num">04</div>
+      <div class="pipeline-text">
+        <strong>Presentación de resultados</strong>
+        <span>Se muestran las coordenadas POSGAR07 con un indicador de calidad estimado por CV, el detalle de las Estaciones Permanentes usadas y su ubicación en el mapa.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <h2 id="ppp">¿Qué es PPP y qué devuelve NRCan?</h2>
+  <p><strong>Posicionamiento de Punto Preciso (PPP)</strong> es una técnica GNSS que determina coordenadas absolutas con precisión centimétrica a partir de un único receptor, sin necesidad de una estación de referencia cercana. Lo logra usando órbitas satelitales y correcciones de reloj de alta precisión distribuidas por centros de cómputo como el <em>Canadian Geodetic Survey</em> de NRCan.</p>
+  <p>El servicio CSRS-PPP de NRCan recibe el archivo RINEX, lo procesa en modo estático y devuelve coordenadas en el marco <strong>IGS20</strong> (International GNSS Service, 2020), que es la realización más reciente del ITRF2020. Las coordenadas se refieren a la <em>época de las observaciones</em>, es decir, la fecha en que se tomaron los datos GNSS.</p>
+  <p>La precisión interna del PPP es típicamente de 1–3 cm en planimetría y 3–5 cm en altimetría para sesiones estáticas de más de 2 horas. El archivo <code>.sum</code> incluye la posición estimada, incertidumbres formales, residuos por satélite y parámetros auxiliares del procesamiento.</p>
+
+  <!-- 3 -->
+  <h2 id="marcos">Marcos de referencia: IGS20 y POSGAR07</h2>
+  <p>Un <strong>marco de referencia geodésico</strong> es un sistema de coordenadas materializado por un conjunto de puntos con posiciones conocidas. Para que las coordenadas de dos mediciones sean comparables, deben estar en el mismo marco y referidas a la misma época.</p>
+  <p><strong>IGS20</strong> es el marco global usado por NRCan. Es compatible con ITRF2020, la realización más precisa del ITRS (International Terrestrial Reference System), y las coordenadas se expresan en la época de las observaciones RINEX.</p>
+  <p><strong>POSGAR07</strong> (Posicionamiento Geodésico Argentino 2007) es el marco oficial de la República Argentina, adoptado por el IGN mediante la Resolución 429/2009. Es equivalente a <strong>ITRF2005 para la época 2006.632</strong> (aproximadamente el 19 de agosto de 2006). Está materializado por la red RAMSAC.</p>
+  <div class="callout warn">
+    <strong>¿Por qué las coordenadas cambian entre marcos?</strong>
+    La diferencia entre IGS20 y POSGAR07 para un punto en Argentina es del orden de <strong>20–90 cm</strong>, y varía según la ubicación y la fecha de las observaciones. Esta diferencia crece con el tiempo debido principalmente a la deriva de la placa tectónica Sudamericana (~2.5 cm/año en dirección Oeste-Noroeste). Ignorar esta diferencia introduce errores inaceptables en aplicaciones catastrales y de ingeniería.
+  </div>
+
+  <!-- 4 -->
+  <h2 id="ramsac">La red RAMSAC como puente entre marcos</h2>
+  <p><strong>RAMSAC</strong> (Red Argentina de Monitoreo Satelital Continuo) es una red de 127 receptores GNSS distribuidos en todo el territorio argentino, operada por el IGN. Cada Estación Permanente (EP) tiene dos conjuntos de coordenadas:</p>
+  <ul style="margin: 0.75rem 0 1rem 1.5rem; font-size: 0.9rem;">
+    <li style="margin-bottom: 0.4rem"><strong>ramsac[EP]</strong>: coordenadas oficiales POSGAR07 (ITRF2005, época 2006.632), determinadas con muy alta precisión.</li>
+    <li><strong>iws[wk][EP]</strong>: coordenadas IGS20 de la EP para la semana GPS <code>wk</code>, calculadas semanalmente por procesamiento relativo y ajuste de red.</li>
+  </ul>
+  <p>La diferencia entre ambas para cada EP en cada semana es:</p>
+  <div class="formula">
+    δ(EP, wk) = iws[wk][EP] − ramsac[EP]
+    <span class="comment">  ← vector de transformación IGS20→POSGAR07 para esa EP en esa época</span>
+  </div>
+  <p>Este vector absorbe empíricamente todos los efectos físicos: deriva tectónica, diferencias de realización entre marcos, movimientos sísmicos, efectos locales de la antena, etc. La ventaja es que <strong>no es necesario modelar ninguno de estos efectos por separado</strong>: están todos cuantificados en los datos reales de la red.</p>
+  <p>La magnitud típica de δ en Argentina es de <strong>17 a 90 cm</strong> (mayor en zonas sísmicamente activas como Mendoza y Neuquén), y crece aproximadamente 2–3 cm por año a medida que la placa se desplaza.</p>
+
+  <!-- 5 -->
+  <h2 id="idw">Interpolación IDW del campo de transformación</h2>
+  <p>Dado que solo conocemos δ en los puntos donde hay EP, usamos <strong>Inverse Distance Weighted (IDW)</strong> para estimar δ en el punto de interés P:</p>
+  <div class="formula">
+    δ(P) = Σ [δ(EPᵢ) × wᵢ] / Σ wᵢ
+    <br><br>
+    donde  wᵢ = 1 / dist(P, EPᵢ)ᵖ
+    <span class="comment">  ← las EP más cercanas tienen más peso</span>
+  </div>
+  <p>Los parámetros son:</p>
+  <table>
+    <tr><th>Parámetro</th><th>Descripción</th></tr>
+    <tr><td>n</td><td>Cantidad de EP más cercanas a usar. Mayor n suaviza el resultado pero puede incorporar EP de contextos geológicos diferentes al punto de interés.</td></tr>
+    <tr><td>p</td><td>Exponente de distancia. Con p=1 el peso decae linealmente con la distancia; con p=2, cuadráticamente (resultado más localizado). Mayor p reduce la influencia de EP lejanas.</td></tr>
+  </table>
+  <p>La transformación final es:</p>
+  <div class="formula">
+    coord_POSGAR07 = coord_IGS20 − δ(P)
+    <span class="comment">  ← se resta porque δ = IGS20 − POSGAR07</span>
+  </div>
+  <p>Las EP disponibles en cada semana varían: la red creció de 13 EP en 2006 a 127 en la actualidad, y algunas estaciones tienen períodos de inactividad. El sistema usa la semana GPS más cercana a las observaciones y busca EP dentro de un radio de 500 km (expandible a 800 km en zonas de baja densidad).</p>
+
+  <!-- 6 -->
+  <h2 id="cv">Selección automática de parámetros por Cross-Validation</h2>
+  <p>En lugar de usar parámetros IDW fijos, el sistema determina automáticamente la combinación (n, p) que mejor predice el campo de transformación en la región de interés. Esto se hace mediante <strong>Cross-Validation Leave-One-Out (CV-LOO)</strong>:</p>
+  <div class="pipeline">
+    <div class="pipeline-step">
+      <div class="pipeline-num">1</div>
+      <div class="pipeline-text">
+        <strong>Para cada configuración (n, p) candidata</strong>
+        <span>Se evalúan 15 configuraciones: n ∈ {2, 3, 5, 7, 10} × p ∈ {1, 2, 3}.</span>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="pipeline-num">2</div>
+      <div class="pipeline-text">
+        <strong>Para cada EP del conjunto regional</strong>
+        <span>Se la retira temporalmente del conjunto y se predice su δ usando IDW(n, p) con las EP restantes.</span>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="pipeline-num">3</div>
+      <div class="pipeline-text">
+        <strong>Error de predicción</strong>
+        <span>Se compara el δ predicho con el δ real conocido de esa EP. El error CV es el promedio de estos errores sobre todas las EP evaluadas.</span>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="pipeline-num">4</div>
+      <div class="pipeline-text">
+        <strong>Configuración óptima</strong>
+        <span>Se elige la (n, p) con menor error CV. Esta configuración es la que mejor reproduce el campo vectorial en la región, y es la que se aplica al punto de interés.</span>
+      </div>
+    </div>
+  </div>
+  <p>Este enfoque tiene justificación estadística sólida: se elige la configuración que mejor predice coordenadas en puntos no usados en la interpolación, que es exactamente la situación del punto de interés. Se descarta también cualquier EP cuyos δ sean estadísticamente anómalos (usando MAD, Median Absolute Deviation, más robusto que la desviación estándar ante outliers).</p>
+
+  <!-- 7 -->
+  <h2 id="calidad">Interpretación del indicador de calidad</h2>
+  <p>El <strong>error CV</strong> expresado en cm es la estimación del error de la transformación IDW para ese punto, semana y configuración. No es el error del PPP —que es generalmente de 1–3 cm— sino el error adicional introducido por la interpolación espacial del campo de transformación.</p>
+  <table class="quality-table">
+    <tr><th>Error CV</th><th>Indicación</th></tr>
+    <tr><td>&lt; 5 cm</td><td>Buena densidad de EP en la región, interpolación confiable. Resultado apto para aplicaciones de precisión.</td></tr>
+    <tr><td>5 – 10 cm</td><td>Densidad moderada o zona con gradientes de transformación importantes (ej: cordillera). Resultado útil con reservas.</td></tr>
+    <tr><td>&gt; 10 cm</td><td>Pocas EP en la región (Patagonia sur, zonas remotas) o alta variabilidad geológica. El resultado es una estimación de orden.</td></tr>
+    <tr><td>n/d</td><td>Menos de 6 EP disponibles en el radio de búsqueda. Se usó configuración por defecto (n=3, p=1). Interpretar con precaución.</td></tr>
+  </table>
+  <div class="callout">
+    <strong>Nota importante</strong>
+    El error CV es una estimación estadística basada en la variación espacial de los δ en la región. No reemplaza una verificación con coordenadas de control conocidas. Para aplicaciones de alta precisión (catastro, infraestructura), se recomienda contrastar con una EP cercana cuando sea posible.
+  </div>
+
+  <!-- 8 -->
+  <h2 id="limitaciones">Limitaciones y contexto de uso</h2>
+  <p>Este servicio es de carácter <strong>experimental</strong>, desarrollado por el <strong>GGSR (Grupo de Geodesia Satelital de Rosario)</strong> con fines de investigación y docencia. No reemplaza los procedimientos oficiales del IGN para trabajos que requieran coordenadas con respaldo legal.</p>
+  <p>Limitaciones conocidas:</p>
+  <ul style="margin: 0.75rem 0 1rem 1.5rem; font-size: 0.9rem; line-height: 1.9;">
+    <li>La red RAMSAC tiene baja densidad en Patagonia, NOA y zonas cordilleranas, donde el error CV puede superar los 10 cm.</li>
+    <li>El método IDW asume continuidad espacial del campo de transformación. En zonas con alta actividad sísmica (San Juan, Mendoza) pueden existir discontinuidades locales no capturadas.</li>
+    <li>Los datos <code>iws</code> se actualizan periódicamente desde el servidor de procesamiento de la red. La semana más reciente disponible puede diferir de la semana de las observaciones.</li>
+    <li>El servicio no calcula altitud ortométrica (altura sobre el geoide). La altura elipsoidal POSGAR07 requiere el modelo geoidal GEOIDE-AR para convertirse a altura sobre el nivel del mar.</li>
+  </ul>
+
+</div>
+</body>
+</html>

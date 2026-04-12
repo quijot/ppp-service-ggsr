@@ -1,0 +1,61 @@
+volumes:
+  ppp_uploads:    # volumen compartido entre web y worker
+  ppp_results:
+
+services:
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app          # hot reload del código
+      - ./ppp:/app/ppp          # tus scripts y pickles
+      - ppp_uploads:/tmp/ppp_uploads
+      - ppp_results:/tmp/ppp_results
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PPP_DIR=/app/ppp
+      - CSRS_USER_EMAIL=ppp@municipalidad.gob.ar
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2
+    volumes:
+      - ./app:/app/app
+      - ./ppp:/app/ppp
+      - ppp_uploads:/tmp/ppp_uploads
+      - ppp_results:/tmp/ppp_results
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PPP_DIR=/app/ppp
+      - CSRS_USER_EMAIL=ppp@municipalidad.gob.ar
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Flower: dashboard de monitoreo de tareas Celery (solo desarrollo)
+  flower:
+    build: .
+    command: celery -A app.tasks.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - worker

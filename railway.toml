@@ -1,0 +1,36 @@
+# railway.toml
+# ------------
+# Este archivo define los dos servicios que Railway debe crear:
+#   1. web    → FastAPI (Uvicorn)
+#   2. worker → Celery
+#
+# INSTRUCCIONES PARA RAILWAY:
+#   1. Creá un nuevo proyecto en Railway
+#   2. Conectá este repositorio
+#   3. Railway detecta este archivo y crea ambos servicios automáticamente
+#   4. Agregá un servicio Redis desde el catálogo de Railway (Add Service → Redis)
+#   5. En cada servicio, configurá las variables de entorno:
+#      - REDIS_URL          → lo provee Railway automáticamente al linkear Redis
+#      - CSRS_USER_EMAIL    → tu email de registro en NRCan
+#      - PPP_DIR            → /app/ppp  (ya está en el Dockerfile)
+#
+# NOTA SOBRE EL WORKER:
+#   Railway no soporta múltiples servicios con Procfile en el mismo deploy.
+#   La forma correcta es crear dos servicios separados apuntando al mismo repo
+#   y sobreescribir el Start Command:
+#     - Servicio "web":    uvicorn app.main:app --host 0.0.0.0 --port $PORT
+#     - Servicio "worker": celery -A app.tasks.celery_app worker --loglevel=info
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[deploy.healthcheck]
+httpPath = "/health"
+intervalSeconds = 30
+timeoutSeconds = 10

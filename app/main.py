@@ -148,6 +148,7 @@ async def job_status(job_id: str):
                 "sigma_lat": res.get("sigma_lat", 0),
                 "sigma_lon": res.get("sigma_lon", 0),
                 "sigma_hgt": res.get("sigma_hgt", 0),
+                "ref_frame": res.get("ref_frame", "ITRF"),
             }
         )
 
@@ -206,6 +207,7 @@ async def transform_direct(
                 "wk_used": res.wk_used,
                 "radius_km": res.radius_km,
                 "ep_nearest": res.ep_nearest,
+                "ref_frame": "IGS20",  # transform directo asume IGS20
             }
         )
     except Exception as e:

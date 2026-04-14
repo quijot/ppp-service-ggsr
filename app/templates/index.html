@@ -15,17 +15,15 @@
       --bg: #0d1117;
       --surface: #161b22;
       --border: #2d333b;
-      --accent: #3fb950;
-      /* verde geodésico */
-      --accent2: #58a6ff;
-      /* azul satélite */
+      --accent: #3fb950;      /* verde geodésico */
+      --accent2: #58a6ff;      /* azul satélite */
       --warn: #d29922;
       --danger: #f85149;
       --text: #e6edf3;
       --muted: #8b949e;
       --mono: 'Space Mono', monospace;
       --sans: 'DM Sans', sans-serif;
-      --r: 4px;
+      --r: 4px
     }
 
     *,
@@ -33,11 +31,11 @@
     *::after {
       box-sizing: border-box;
       margin: 0;
-      padding: 0;
+      padding: 0
     }
 
     html {
-      font-size: 15px;
+      font-size: 15px
     }
 
     body {
@@ -47,7 +45,7 @@
       font-weight: 300;
       min-height: 100vh;
       display: grid;
-      grid-template-rows: auto 1fr auto;
+      grid-template-rows: auto 1fr auto
     }
 
     /* ── Header ── */
@@ -56,13 +54,13 @@
       padding: .9rem 1.5rem;
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 1rem
     }
 
     .header-brand {
       display: flex;
       flex-direction: column;
-      gap: .1rem;
+      gap: .1rem
     }
 
     .header-title {
@@ -71,20 +69,20 @@
       font-weight: 700;
       color: var(--accent);
       letter-spacing: .04em;
-      text-transform: uppercase;
+      text-transform: uppercase
     }
 
     .header-sub {
       font-size: .72rem;
       color: var(--muted);
-      font-style: italic;
+      font-style: italic
     }
 
     .header-right {
       margin-left: auto;
       display: flex;
       align-items: center;
-      gap: .75rem;
+      gap: .75rem
     }
 
     .header-right a {
@@ -97,12 +95,12 @@
       padding: 3px 8px;
       border: 1px solid var(--border);
       border-radius: var(--r);
-      transition: border-color .2s, color .2s;
+      transition: border-color .2s, color .2s
     }
 
     .header-right a:hover {
       border-color: var(--accent2);
-      color: var(--accent2);
+      color: var(--accent2)
     }
 
     .badge-frame {
@@ -111,14 +109,14 @@
       color: var(--muted);
       border: 1px solid var(--border);
       padding: 2px 7px;
-      border-radius: 20px;
+      border-radius: 20px
     }
 
     /* ── Layout ── */
     main {
       display: grid;
       grid-template-columns: 370px 1fr;
-      height: calc(100 - 57px);
+      height: calc(100 - 57px)
     }
 
     /* ── Panel ── */
@@ -126,13 +124,13 @@
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      overflow-y: auto;
+      overflow-y: auto
     }
 
     /* ── Tabs ── */
     .tabs {
       display: flex;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--border)
     }
 
     .tab-btn {
@@ -147,31 +145,31 @@
       border: none;
       border-bottom: 2px solid transparent;
       cursor: pointer;
-      transition: color .2s, border-color .2s;
+      transition: color .2s, border-color .2s
     }
 
     .tab-btn.active {
       color: var(--accent);
-      border-bottom-color: var(--accent);
+      border-bottom-color: var(--accent)
     }
 
     .tab-btn:hover:not(.active) {
-      color: var(--text);
+      color: var(--text)
     }
 
     .tab-content {
       display: none;
       flex: 1;
-      flex-direction: column;
+      flex-direction: column
     }
 
     .tab-content.active {
-      display: flex;
+      display: flex
     }
 
     .panel-section {
       padding: 1.25rem;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--border)
     }
 
     .section-label {
@@ -180,7 +178,7 @@
       color: var(--muted);
       letter-spacing: .12em;
       text-transform: uppercase;
-      margin-bottom: .9rem;
+      margin-bottom: .9rem
     }
 
     /* Dropzone */
@@ -191,13 +189,13 @@
       text-align: center;
       cursor: pointer;
       transition: border-color .2s, background .2s;
-      position: relative;
+      position: relative
     }
 
     .dropzone:hover,
     .dropzone.dragover {
       border-color: var(--accent);
-      background: rgba(63, 185, 80, .04);
+      background: rgba(63, 185, 80, .04)
     }
 
     .dropzone input[type="file"] {
@@ -205,19 +203,19 @@
       inset: 0;
       opacity: 0;
       cursor: pointer;
-      width: 100%;
+      width: 100%
     }
 
     .dropzone-icon {
       font-size: 1.8rem;
       color: var(--muted);
-      margin-bottom: .4rem;
+      margin-bottom: .4rem
     }
 
     .dropzone p {
       font-size: .75rem;
       color: var(--muted);
-      line-height: 1.5;
+      line-height: 1.5
     }
 
     .dropzone .filename {
@@ -225,7 +223,7 @@
       font-family: var(--mono);
       font-size: .7rem;
       color: var(--accent);
-      word-break: break-all;
+      word-break: break-all
     }
 
     /* ── Form fields ── */
@@ -233,17 +231,17 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: .6rem;
-      margin-top: .75rem;
+      margin-top: .75rem
     }
 
     .field {
       display: flex;
       flex-direction: column;
-      gap: .3rem;
+      gap: .3rem
     }
 
     .field.full {
-      grid-column: 1/-1;
+      grid-column: 1/-1
     }
 
     label {
@@ -251,7 +249,7 @@
       font-size: .6rem;
       color: var(--muted);
       letter-spacing: .08em;
-      text-transform: uppercase;
+      text-transform: uppercase
     }
 
     input[type=text],
@@ -266,11 +264,11 @@
       padding: .4rem .6rem;
       width: 100%;
       outline: none;
-      transition: border-color .2s;
+      transition: border-color .2s
     }
 
     input:focus {
-      border-color: var(--accent2);
+      border-color: var(--accent2)
     }
 
     .btn-submit {
@@ -287,16 +285,16 @@
       letter-spacing: .08em;
       text-transform: uppercase;
       cursor: pointer;
-      transition: opacity .2s;
+      transition: opacity .2s
     }
 
     .btn-submit:hover {
-      opacity: .85;
+      opacity: .85
     }
 
     .btn-submit:disabled {
       opacity: .35;
-      cursor: not-allowed;
+      cursor: not-allowed
     }
 
     /* ── Status ── */
@@ -306,7 +304,7 @@
       display: flex;
       flex-direction: column;
       gap: .8rem;
-      overflow-y: auto;
+      overflow-y: auto
     }
 
     .status-indicator {
@@ -314,7 +312,7 @@
       align-items: center;
       gap: .5rem;
       font-family: var(--mono);
-      font-size: .72rem;
+      font-size: .72rem
     }
 
     .dot {
@@ -322,20 +320,20 @@
       height: 7px;
       border-radius: 50%;
       background: var(--muted);
-      flex-shrink: 0;
+      flex-shrink: 0
     }
 
     .dot.processing {
       background: var(--accent2);
-      animation: pulse 1.2s infinite;
+      animation: pulse 1.2s infinite
     }
 
     .dot.done {
-      background: var(--accent);
+      background: var(--accent)
     }
 
     .dot.error {
-      background: var(--danger);
+      background: var(--danger)
     }
 
     @keyframes pulse {
@@ -354,19 +352,19 @@
       height: 2px;
       background: var(--border);
       border-radius: 1px;
-      overflow: hidden;
+      overflow: hidden
     }
 
     .progress-bar {
       height: 100%;
       background: var(--accent2);
       width: 0;
-      transition: width .4s;
+      transition: width .4s
     }
 
     .progress-bar.indeterminate {
       animation: indet 1.5s infinite linear;
-      width: 35%;
+      width: 35%
     }
 
     @keyframes indet {
@@ -385,7 +383,7 @@
       border: 1px solid rgba(63, 185, 80, .2);
       border-radius: var(--r);
       padding: .75rem 1rem;
-      margin-bottom: .75rem;
+      margin-bottom: .75rem
     }
 
     .site-name {
@@ -394,7 +392,7 @@
       color: var(--accent);
       letter-spacing: .1em;
       text-transform: uppercase;
-      margin-bottom: .3rem;
+      margin-bottom: .3rem
     }
 
     .coords-val {
@@ -402,20 +400,20 @@
       font-size: .95rem;
       font-weight: 700;
       color: var(--text);
-      letter-spacing: .02em;
+      letter-spacing: .02em
     }
 
     .coords-hgt {
       font-family: var(--mono);
       font-size: .78rem;
       color: var(--muted);
-      margin-top: .2rem;
+      margin-top: .2rem
     }
 
     .coords-ref {
       font-size: .67rem;
       color: var(--muted);
-      margin-top: .25rem;
+      margin-top: .25rem
     }
 
     .quality-badge {
@@ -426,25 +424,25 @@
       font-size: .62rem;
       padding: 2px 8px;
       border-radius: 20px;
-      margin-top: .4rem;
+      margin-top: .4rem
     }
 
     .quality-badge.good {
       background: rgba(63, 185, 80, .12);
       color: var(--accent);
-      border: 1px solid rgba(63, 185, 80, .25);
+      border: 1px solid rgba(63, 185, 80, .25)
     }
 
     .quality-badge.warn {
       background: rgba(210, 153, 34, .12);
       color: var(--warn);
-      border: 1px solid rgba(210, 153, 34, .25);
+      border: 1px solid rgba(210, 153, 34, .25)
     }
 
     .quality-badge.poor {
       background: rgba(248, 81, 73, .10);
       color: var(--danger);
-      border: 1px solid rgba(248, 81, 73, .25);
+      border: 1px solid rgba(248, 81, 73, .25)
     }
 
     /* ── PPP origin block ── */
@@ -453,7 +451,7 @@
       border: 1px solid rgba(88, 166, 255, .15);
       border-radius: var(--r);
       padding: .65rem .9rem;
-      margin-bottom: .6rem;
+      margin-bottom: .6rem
     }
 
     .ppp-origin .ppp-label {
@@ -462,36 +460,36 @@
       color: var(--accent2);
       letter-spacing: .1em;
       text-transform: uppercase;
-      margin-bottom: .35rem;
+      margin-bottom: .35rem
     }
 
     .ppp-row {
       display: flex;
       justify-content: space-between;
       font-size: .75rem;
-      padding: .15rem 0;
+      padding: .15rem 0
     }
 
     .ppp-key {
-      color: var(--muted);
+      color: var(--muted)
     }
 
     .ppp-val {
       font-family: var(--mono);
       font-size: .72rem;
-      color: var(--text);
+      color: var(--text)
     }
 
     .ppp-sigma {
       font-size: .68rem;
       color: var(--warn);
-      margin-left: .3rem;
+      margin-left: .3rem
     }
 
     .report-section {
       border-top: 1px solid var(--border);
       padding-top: .65rem;
-      margin-top: .15rem;
+      margin-top: .15rem
     }
 
     .report-section h5 {
@@ -500,7 +498,7 @@
       color: var(--muted);
       letter-spacing: .1em;
       text-transform: uppercase;
-      margin-bottom: .45rem;
+      margin-bottom: .45rem
     }
 
     .report-row {
@@ -509,25 +507,25 @@
       align-items: flex-start;
       font-size: .75rem;
       padding: .18rem 0;
-      border-bottom: 1px solid rgba(45, 51, 59, .4);
+      border-bottom: 1px solid rgba(45, 51, 59, .4)
     }
 
     .report-row:last-child {
-      border-bottom: none;
+      border-bottom: none
     }
 
     .report-key {
       color: var(--muted);
       display: flex;
       align-items: center;
-      gap: .2rem;
+      gap: .2rem
     }
 
     .report-val {
       font-family: var(--mono);
       font-size: .7rem;
       color: var(--text);
-      text-align: right;
+      text-align: right
     }
 
     /* ── CV desglose ── */
@@ -535,7 +533,7 @@
       display: flex;
       gap: .5rem;
       margin-top: .3rem;
-      flex-wrap: wrap;
+      flex-wrap: wrap
     }
 
     .cv-chip {
@@ -544,17 +542,17 @@
       padding: 1px 7px;
       border-radius: 3px;
       background: rgba(45, 51, 59, .6);
-      color: var(--muted);
+      color: var(--muted)
     }
 
     .cv-chip span {
-      color: var(--text);
+      color: var(--text)
     }
 
     /* ── Tooltip ── */
     .tooltip-wrap {
       position: relative;
-      display: inline-block;
+      display: inline-block
     }
 
     .tooltip-trigger {
@@ -570,7 +568,7 @@
       cursor: help;
       margin-left: 3px;
       vertical-align: middle;
-      flex-shrink: 0;
+      flex-shrink: 0
     }
 
     .tooltip-box {
@@ -587,11 +585,11 @@
       line-height: 1.5;
       width: 220px;
       z-index: 100;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .4)
     }
 
     .tooltip-wrap:hover .tooltip-box {
-      display: block;
+      display: block
     }
 
     .ep-list {
@@ -599,15 +597,15 @@
       font-family: var(--mono);
       font-size: .66rem;
       color: var(--muted);
-      margin-top: .25rem;
+      margin-top: .25rem
     }
 
     .ep-list li {
-      padding: 1px 0;
+      padding: 1px 0
     }
 
     .ep-list li span {
-      color: var(--accent2);
+      color: var(--accent2)
     }
 
     .error-msg {
@@ -618,18 +616,18 @@
       border: 1px solid rgba(248, 81, 73, .2);
       border-radius: var(--r);
       padding: .65rem .9rem;
-      line-height: 1.5;
+      line-height: 1.5
     }
 
     /* ── Mapa ── */
     #map {
       width: 100%;
       height: 100%;
-      background: #0d1117;
+      background: #0d1117
     }
 
     .leaflet-container {
-      background: #1a2332;
+      background: #1a2332
     }
 
     /* Etiquetas Leaflet personalizadas */
@@ -641,7 +639,7 @@
       color: #93c5fd;
       white-space: nowrap;
       text-shadow: 0 1px 3px #0d1117, 0 0 6px #0d1117;
-      pointer-events: none;
+      pointer-events: none
     }
 
     .base-label {
@@ -653,7 +651,7 @@
       color: #4ade80;
       white-space: nowrap;
       text-shadow: 0 1px 4px #0d1117, 0 0 8px #0d1117;
-      pointer-events: none;
+      pointer-events: none
     }
 
     /* ── Footer ── */
@@ -665,16 +663,16 @@
       color: var(--muted);
       display: flex;
       gap: 1.5rem;
-      align-items: center;
+      align-items: center
     }
 
     footer a {
       color: var(--muted);
-      text-decoration: none;
+      text-decoration: none
     }
 
     footer a:hover {
-      color: var(--accent2);
+      color: var(--accent2)
     }
 
     @media(max-width:768px) {
@@ -806,7 +804,7 @@
     function makeTip(term) {
       const def = GLOSARIO[term];
       if (!def) return term;
-      return `${term}<span class="tooltip-wrap"><span class="tooltip-trigger">?</span><span class="tooltip-box"><strong>${term}</strong>: ${def}</span></span>`;
+      return `${term}<span class="tooltip-wrap"><span class="tooltip-trigger">?</span><span class="tooltip-box"><strong>${term}</strong>: ${def}</span></span>`
     }
 
     // ── Mapa ──────────────────────────────────────────────────────────────────────
@@ -877,6 +875,42 @@
       });
     });
 
+
+    // ── Calidad combinada PPP + CV ────────────────────────────────────────────────
+    function buildCombinedQuality(d) {
+      // El σ PPP formal subestima el error real. Para sesiones largas (>2h) el PPP
+      // estático tiene exactitud real de ~1-3 cm, independientemente del σ formal.
+      // El error CV es empírico y realista. Se combinan en cuadratura.
+      if (!d.sigma_lat && !d.sigma_lon) return ''; // transformación directa sin PPP
+      if (d.cv_error_cm < 0) return '';
+
+      const sigLat = d.sigma_lat * 100;  // m → cm
+      const sigLon = d.sigma_lon * 100;
+      // Error real PPP estimado: max(σ_formal, 1 cm) — conservador
+      const pppRealLat = Math.max(sigLat, 1.0);
+      const pppRealLon = Math.max(sigLon, 1.0);
+      // Combinación en cuadratura: √(σ_ppp² + σ_cv²)
+      const combLat = Math.sqrt(pppRealLat ** 2 + (d.cv_error_lat_cm || 0) ** 2).toFixed(1);
+      const combLon = Math.sqrt(pppRealLon ** 2 + (d.cv_error_lon_cm || 0) ** 2).toFixed(1);
+      const combVec = Math.sqrt((Math.max(d.sigma_lat * 100, 1)) ** 2 + (Math.max(d.sigma_lon * 100, 1)) ** 2 + d.cv_error_cm ** 2).toFixed(1);
+
+      return `
+  <div style="margin-top:.6rem;padding:.5rem .7rem;background:rgba(45,51,59,.5);border-radius:3px;font-size:.7rem">
+    <div style="font-family:var(--mono);font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.3rem">
+      Incertidumbre total estimada <span style="color:var(--muted);font-weight:normal">(PPP ⊕ CV, en cuadratura)</span>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <div class="cv-chip">Δlat <span>±${combLat} cm</span></div>
+      <div class="cv-chip">Δlon <span>±${combLon} cm</span></div>
+      <div class="cv-chip">vector <span>±${combVec} cm</span></div>
+    </div>
+    <div style="margin-top:.35rem;color:var(--muted);font-size:.65rem;line-height:1.4">
+      El σ(95%) de NRCan es una incertidumbre <em>formal</em> del ajuste, típicamente
+      optimista. La exactitud real del PPP estático es ~1–3 cm. El error CV es empírico.
+    </div>
+  </div>`;
+    }
+
     // ── Builder de resultado ──────────────────────────────────────────────────────
     function buildResultHTML(d, inputLabel) {
       // Calidad vectorial
@@ -909,7 +943,7 @@
         const sigHgt = (d.sigma_hgt * 100).toFixed(1);
         pppBlock = `
 <div class="ppp-origin">
-  <div class="ppp-label">📡 Origen ${makeTip('PPP')} — ${makeTip('IGS20')}</div>
+  <div class="ppp-label">📡 Origen ${makeTip('PPP')} — <span style="color:var(--accent2);font-family:var(--mono)">${d.ref_frame || 'ITRF'}</span></div>
   <div class="ppp-row"><span class="ppp-key">Latitud</span>
     <span class="ppp-val">${d.lat_ppp_dms || d.lat_input_dms}<span class="ppp-sigma">±${sigLat} cm ${makeTip('σ(95%)')}</span></span></div>
   <div class="ppp-row"><span class="ppp-key">Longitud</span>
@@ -918,16 +952,18 @@
     <span class="ppp-val">${d.hgt_str} m<span class="ppp-sigma">±${sigHgt} cm</span></span></div>
   <div class="ppp-row"><span class="ppp-key">Semana ${makeTip('wk')}</span>
     <span class="ppp-val">${d.obs_wk}</span></div>
+  ${buildCombinedQuality(d)}
 </div>`;
       } else if (d.hgt_str) {
         // Transformación directa: sin sigmas pero mostramos la entrada
         pppBlock = `
 <div class="ppp-origin">
-  <div class="ppp-label">🔄 Coordenadas de entrada — ${makeTip('ITRF')} / ${makeTip('IGS20')}</div>
+  <div class="ppp-label">🔄 Coordenadas de entrada — <span style="color:var(--accent2);font-family:var(--mono)">${d.ref_frame || 'ITRF'}</span></div>
   <div class="ppp-row"><span class="ppp-key">Latitud</span><span class="ppp-val">${d.lat_input_dms || d.lat_ppp_dms}</span></div>
   <div class="ppp-row"><span class="ppp-key">Longitud</span><span class="ppp-val">${d.lon_input_dms || d.lon_ppp_dms}</span></div>
   <div class="ppp-row"><span class="ppp-key">Altura elips.</span><span class="ppp-val">${d.hgt_str} m</span></div>
   <div class="ppp-row"><span class="ppp-key">Semana ${makeTip('wk')}</span><span class="ppp-val">${d.obs_wk}</span></div>
+  ${buildCombinedQuality(d)}
 </div>`;
       }
 

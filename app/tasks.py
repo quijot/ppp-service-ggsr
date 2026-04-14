@@ -66,6 +66,7 @@ def _run_transform(
     hgt: float,
     obs_date: str,
     marker: str = "Punto",
+    ref_frame: str = "ITRF",
     sigma_lat: float = 0.0,
     sigma_lon: float = 0.0,
     sigma_hgt: float = 0.0,
@@ -93,47 +94,47 @@ def _run_transform(
     lat_ppp_dms = dd2dms(lat)
     lon_ppp_dms = dd2dms(lon)
 
-    # Descripción de calidad del resultado
-    if res.cv_error_cm < 0:
-        quality_str = "Error CV no disponible (pocas EP)"
-        quality_class = "warn"
-    elif res.cv_error_cm < 5:
-        quality_str = f"Buena ({res.cv_error_cm:.1f} cm CV)"
-        quality_class = "good"
-    elif res.cv_error_cm < 10:
-        quality_str = f"Moderada ({res.cv_error_cm:.1f} cm CV)"
-        quality_class = "warn"
-    else:
-        quality_str = f"Baja ({res.cv_error_cm:.1f} cm CV)"
-        quality_class = "poor"
+#     # Descripción de calidad del resultado
+#     if res.cv_error_cm < 0:
+#         quality_str = "Error CV no disponible (pocas EP)"
+#         quality_class = "warn"
+#     elif res.cv_error_cm < 5:
+#         quality_str = f"Buena ({res.cv_error_cm:.1f} cm CV)"
+#         quality_class = "good"
+#     elif res.cv_error_cm < 10:
+#         quality_str = f"Moderada ({res.cv_error_cm:.1f} cm CV)"
+#         quality_class = "warn"
+#     else:
+#         quality_str = f"Baja ({res.cv_error_cm:.1f} cm CV)"
+#         quality_class = "poor"
 
-    nearest_lines = [f"{ep}: {dist:.1f} km" for ep, dist in res.ep_nearest.items()]
+#     nearest_lines = [f"{ep}: {dist:.1f} km" for ep, dist in res.ep_nearest.items()]
 
-    result_html = f"""
-<div class="result-block">
-  <h4>Resultado POSGAR07</h4>
-  <p class="coords-lead"><strong>{lat_posgar_dms}, {lon_posgar_dms}</strong></p>
-  <p class="quality quality-{quality_class}">Calidad estimada: {quality_str}</p>
-</div>
-<hr>
-<div class="report-block">
-  <h4>Reporte</h4>
-  <p>
-    <strong>PPP results</strong> (semana GPS {obs_wk}):<br>
-    &nbsp;&nbsp;{lat:.10f}, {lon:.10f}<br>
-    &nbsp;&nbsp;{lat_ppp_dms}, {lon_ppp_dms}
-  </p>
-  <p>
-    <strong>Transformación IDW</strong>
-    (semana {res.wk_used}, n={res.n_used}, p={res.p_used},
-    radio={res.radius_km:.0f} km, {res.n_ep_cv} EP en CV)<br>
-    &nbsp;&nbsp;EP usadas:<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;{"<br>&nbsp;&nbsp;&nbsp;&nbsp;".join(nearest_lines)}<br>
-    &nbsp;&nbsp;{res.lat:.15f}, {res.lon:.15f}<br>
-    &nbsp;&nbsp;<strong>{lat_posgar_dms}, {lon_posgar_dms}</strong>
-  </p>
-</div>
-"""
+#     result_html = f"""
+# <div class="result-block">
+#   <h4>Resultado POSGAR07</h4>
+#   <p class="coords-lead"><strong>{lat_posgar_dms}, {lon_posgar_dms}</strong></p>
+#   <p class="quality quality-{quality_class}">Calidad estimada: {quality_str}</p>
+# </div>
+# <hr>
+# <div class="report-block">
+#   <h4>Reporte</h4>
+#   <p>
+#     <strong>PPP results</strong> (semana GPS {obs_wk}):<br>
+#     &nbsp;&nbsp;{lat:.10f}, {lon:.10f}<br>
+#     &nbsp;&nbsp;{lat_ppp_dms}, {lon_ppp_dms}
+#   </p>
+#   <p>
+#     <strong>Transformación IDW</strong>
+#     (semana {res.wk_used}, n={res.n_used}, p={res.p_used},
+#     radio={res.radius_km:.0f} km, {res.n_ep_cv} EP en CV)<br>
+#     &nbsp;&nbsp;EP usadas:<br>
+#     &nbsp;&nbsp;&nbsp;&nbsp;{"<br>&nbsp;&nbsp;&nbsp;&nbsp;".join(nearest_lines)}<br>
+#     &nbsp;&nbsp;{res.lat:.15f}, {res.lon:.15f}<br>
+#     &nbsp;&nbsp;<strong>{lat_posgar_dms}, {lon_posgar_dms}</strong>
+#   </p>
+# </div>
+# """
 
     # --- GeoJSON para Leaflet ---
     point_desc = "<b>Coordenadas POSGAR07</b><br><b>lat:</b> {}<br><b>lon:</b> {}"
@@ -199,6 +200,7 @@ def _run_transform(
         "sigma_lat": sigma_lat,
         "sigma_lon": sigma_lon,
         "sigma_hgt": sigma_hgt,
+        "ref_frame": ref_frame,
     }
 
 
@@ -340,6 +342,7 @@ def process_rinex(self, job_id: str, rinex_path: str):
         hgt=ppp.hgt,
         obs_date=ppp.obs_date,
         marker=ppp.marker,
+        ref_frame=ppp.ref_frame,
         sigma_lat=ppp.sigma_lat,
         sigma_lon=ppp.sigma_lon,
         sigma_hgt=ppp.sigma_hgt,
@@ -382,5 +385,6 @@ def process_rinex(self, job_id: str, rinex_path: str):
         "sigma_lat": calc_result["sigma_lat"],
         "sigma_lon": calc_result["sigma_lon"],
         "sigma_hgt": calc_result["sigma_hgt"],
+        "ref_frame": calc_result["ref_frame"],
         "error_msg": "",
     }

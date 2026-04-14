@@ -1,21 +1,26 @@
 FROM python:3.11-slim
 
-# Dependencias del sistema
+# Dependencias del sistema necesarias para compilar algunas dependencias Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Instalar dependencias Python
+# Instalar dependencias Python primero (aprovecha caché de Docker)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar código
-COPY app/        ./app/
-COPY ppp/        ./ppp/
+# Copiar código de la aplicación
+COPY app/ ./app/
 
-# Crear directorios temporales
+# Copiar módulos de cálculo geodésico.
+# IMPORTANTE: los archivos .pickle (ramsac, iws, sws) NO están en el repo.
+# Deben subirse por separado a Railway (ver README → Deploy en Railway).
+COPY ppp/ ./ppp/
+
+# Directorios para archivos temporales del pipeline RINEX
+# En Railway se reemplazan por volúmenes persistentes si se configuran
 RUN mkdir -p /tmp/ppp_uploads /tmp/ppp_results
 
 # Variables de entorno por defecto (se sobreescriben en Railway)
@@ -27,6 +32,6 @@ ENV PYTHONUNBUFFERED=1 \
 # Puerto expuesto para el web server
 EXPOSE 8000
 
-# Comando por defecto: web server
-# El worker se lanza por separado (ver Procfile / railway.toml)
+# Comando por defecto: servidor web
+# El worker Celery se configura como servicio separado en Railway (ver Procfile / railway.toml)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

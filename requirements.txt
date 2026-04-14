@@ -1,30 +1,29 @@
-# Web framework
+# ── Web framework ──────────────────────────────────────────────────────────────
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 python-multipart==0.0.9
 jinja2==3.1.4
 pydantic-settings==2.2.1
 
-# Cola de tareas
+# ── Cola de tareas ─────────────────────────────────────────────────────────────
 celery==5.4.0
 redis==5.0.4
 
-# HTTP client (para comunicación con NRCan)
+# ── HTTP client (comunicación con NRCan CSRS-PPP) ─────────────────────────────
 requests==2.31.0
+urllib3==1.26.18        # pin necesario: urllib3>=2.x rompe requests-toolbelt
 requests-toolbelt==0.10.1
-urllib3==1.26.18
 
-# GNSS / geodesia
-geojson==3.2.0
-geographiclib==2.1
+# ── Geodesia / GNSS ───────────────────────────────────────────────────────────
+geojson==3.1.0
+geographiclib==2.0
+gnsstime                # semanas GPS — verificar disponibilidad en PyPI
 
-# gnsstime: instalá desde el repo correspondiente
-# Si está en PyPI:
-gnsstime
+# ── Módulos propios (ppp/) ────────────────────────────────────────────────────
+# transform.py, geodata.py, calc.py, itrf2posgar.py y archivos relacionados
+# se agregan al sys.path en tiempo de ejecución vía PPP_DIR.
+# No se instalan como paquetes.
 
-# Paquetes propios (calc2, itrf2posgar, geodata) se montan vía ppp_dir
-# No van acá — se agregan al sys.path en tiempo de ejecución
-
-# PostgreSQL (preparado para cuando lo actives)
+# ── PostgreSQL — descomentar cuando se active persistencia ────────────────────
 # asyncpg==0.29.0
 # sqlalchemy[asyncio]==2.0.30

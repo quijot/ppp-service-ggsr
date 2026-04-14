@@ -1,11 +1,32 @@
-.vscode
-.env*
+# Entorno local
+.env
+.env.*
+!.env.example
+
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Datos binarios — subir a Railway via CLI o volumen, NO al repo
 *.pickle
+*.sws
+
+# Archivos temporales del pipeline
 /tmp/
 *.zip
 *.sum
 idw.geojson
+
+# OS
 .DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
 epgps

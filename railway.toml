@@ -11,7 +11,10 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+startCommand = "$START_CMD"
+# Esto configura una Variable de Entorno START_CMD
+# Para web → START_CMD = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+# Para worker → START_CMD = "celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 

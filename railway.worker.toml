@@ -1,0 +1,14 @@
+# railway.toml — Configuración de build y deploy para Railway
+#
+# Este archivo configura el servicio  "worker" (Celery).
+#
+# Ver README → Deploy en Railway para el procedimiento completo.
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

@@ -1,8 +1,6 @@
 # railway.toml — Configuración de build y deploy para Railway
 #
 # Este archivo configura el servicio "web" (FastAPI).
-# El servicio "worker" (Celery) se configura manualmente en el dashboard de Railway
-# con el mismo repo y un Start Command diferente.
 #
 # Ver README → Deploy en Railway para el procedimiento completo.
 
@@ -11,10 +9,7 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "$START_CMD"
-# Esto configura una Variable de Entorno START_CMD
-# Para web → START_CMD = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
-# Para worker → START_CMD = "celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2"
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 

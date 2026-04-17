@@ -333,6 +333,18 @@ def process_rinex(self, job_id: str, rinex_filename: str):
     # Encontrar el .sum (puede estar en subdirectorio)
     sum_files = list(work_dir.rglob("*.sum"))
     if not sum_files:
+        # NRCan devuelve errors.zip dentro del full_output.zip cuando el RINEX es inválido
+        nrcan_error = None
+        for errors_zip in work_dir.rglob("errors.zip"):
+            try:
+                with zipfile.ZipFile(errors_zip, "r") as ez:
+                    if "errors.txt" in ez.namelist():
+                        nrcan_error = ez.read("errors.txt").decode("utf-8", errors="replace").strip()
+                        break
+            except zipfile.BadZipFile:
+                pass
+        if nrcan_error:
+            raise RuntimeError(f"NRCan rechazó el archivo RINEX:\n{nrcan_error}")
         raise RuntimeError("No se encontró archivo .sum en los resultados de NRCan.")
     sum_path = sum_files[0]
 

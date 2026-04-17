@@ -19,14 +19,12 @@ COPY app/ ./app/
 # Deben subirse por separado a Railway (ver README → Deploy en Railway).
 COPY ppp/ ./ppp/
 
-# Directorios para archivos temporales del pipeline RINEX
-# En Railway se reemplazan por volúmenes persistentes si se configuran
-RUN mkdir -p /tmp/ppp_uploads /tmp/ppp_results
+# Directorio para archivos temporales del pipeline RINEX (worker)
+RUN mkdir -p /tmp/ppp_results
 
 # Variables de entorno por defecto (se sobreescriben en Railway)
 ENV PYTHONUNBUFFERED=1 \
     PPP_DIR=/app/ppp \
-    UPLOAD_DIR=/tmp/ppp_uploads \
     RESULTS_DIR=/tmp/ppp_results
 
 # Puerto expuesto para el web server

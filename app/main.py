@@ -11,10 +11,9 @@ Endpoints:
   GET  /health              → healthcheck
 """
 
-import os
 import uuid
-from pathlib import Path
 
+import redis as redis_lib
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -27,9 +26,7 @@ cfg = get_settings()
 
 app = FastAPI(title="Servicio PPP Experimental GGSR", version="1.0.0")
 templates = Jinja2Templates(directory="app/templates")
-
-Path(cfg.upload_dir).mkdir(parents=True, exist_ok=True)
-Path(cfg.results_dir).mkdir(parents=True, exist_ok=True)
+_redis = redis_lib.from_url(cfg.redis_url, decode_responses=False)
 
 # ---------------------------------------------------------------------------
 # Extensiones RINEX permitidas
@@ -97,10 +94,11 @@ async def upload_rinex(request: Request, rinex_file: UploadFile = File(...)):
         )
 
     job_id = str(uuid.uuid4())
-    upload_path = Path(cfg.upload_dir) / f"{job_id}_{rinex_file.filename}"
-    upload_path.write_bytes(contents)
+    _redis.set(f"rinex:{job_id}", contents, ex=3600)
 
-    process_rinex.apply_async(args=[job_id, str(upload_path)], task_id=job_id)
+    process_rinex.apply_async(
+        args=[job_id, rinex_file.filename or "upload.rnx"], task_id=job_id
+    )
     return RedirectResponse(url=f"/job/{job_id}", status_code=303)
 
 

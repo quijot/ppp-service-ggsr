@@ -14,7 +14,6 @@ class Settings(BaseSettings):
 
     # Paths internos
     ppp_dir: str = "/app/ppp"  # donde viven calc2.py, pickles, etc.
-    upload_dir: str = "/tmp/ppp_uploads"
     results_dir: str = "/tmp/ppp_results"
 
     # PostgreSQL (opcional por ahora, se activa cuando esté disponible)

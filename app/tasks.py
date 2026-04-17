@@ -14,10 +14,12 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 import time
 import zipfile
 from pathlib import Path
 
+import redis as redis_lib
 import requests
 from celery import Celery
 from requests_toolbelt.multipart.encoder import MultipartEncoder
@@ -26,6 +28,7 @@ from app.config import get_settings
 from app.parser import parse_sum, SumParseError
 
 cfg = get_settings()
+_redis = redis_lib.from_url(cfg.redis_url, decode_responses=False)
 
 # ---------------------------------------------------------------------------
 # Celery app
@@ -208,18 +211,29 @@ def _run_transform(
 # Tarea principal
 # ---------------------------------------------------------------------------
 @celery_app.task(bind=True, name="ppp_tasks.process_rinex")
-def process_rinex(self, job_id: str, rinex_path: str):
+def process_rinex(self, job_id: str, rinex_filename: str):
     """
     Pipeline completo: RINEX → NRCan → .sum → POSGAR07.
     El estado se va actualizando en Redis via self.update_state().
+    El contenido del RINEX se recupera de Redis (clave rinex:{job_id}).
     """
 
     def _update(status: str, msg: str = ""):
         self.update_state(state=status, meta={"msg": msg})
 
+    # Recuperar bytes del RINEX desde Redis y escribir a un temp file local
+    rinex_bytes = _redis.get(f"rinex:{job_id}")
+    if not rinex_bytes:
+        raise RuntimeError("Archivo RINEX no encontrado en Redis (expiró o nunca se subió).")
+    _redis.delete(f"rinex:{job_id}")
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="ppp_"))
+    rinex_file = tmp_dir / rinex_filename
+    rinex_file.write_bytes(rinex_bytes)
+    rinex_path = str(rinex_file)
+
     work_dir = Path(cfg.results_dir) / job_id
     work_dir.mkdir(parents=True, exist_ok=True)
-    rinex_file = Path(rinex_path)
     rinex_name = rinex_file.stem
 
     # ------------------------------------------------------------------
@@ -356,7 +370,7 @@ def process_rinex(self, job_id: str, rinex_path: str):
     # ------------------------------------------------------------------
     try:
         shutil.rmtree(work_dir)
-        rinex_file.unlink(missing_ok=True)
+        shutil.rmtree(tmp_dir)
     except Exception:
         pass
 

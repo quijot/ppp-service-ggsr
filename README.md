@@ -165,8 +165,7 @@ railway run --service web cp /ruta/local/sws.pickle    /app/ppp/sws.pickle
 | `CSRS_MODE` | `Static` | Modo de procesamiento PPP |
 | `CSRS_REF` | `ITRF` | Marco de referencia solicitado a NRCan |
 | `PPP_DIR` | `/app/ppp` | Path al directorio de módulos geodésicos |
-| `UPLOAD_DIR` | `/tmp/ppp_uploads` | Path para archivos RINEX temporales |
-| `RESULTS_DIR` | `/tmp/ppp_results` | Path para resultados temporales de NRCan |
+| `RESULTS_DIR` | `/tmp/ppp_results` | Path para resultados temporales de NRCan (worker) |
 | `DATABASE_URL` | *(vacío)* | PostgreSQL — para activar persistencia de resultados |
 
 ---
@@ -177,6 +176,7 @@ railway run --service web cp /ruta/local/sws.pickle    /app/ppp/sws.pickle
 - **Límite de archivo**: 20 MB (igual que NRCan).
 - **Marco de referencia**: NRCan v5 usa IGS20 para datos recientes y posiblemente IGS14 para históricos pre-2022. El servicio lee el marco del `.sum` y lo muestra explícitamente.
 - **Altura elipsoidal**: se reporta en el marco de NRCan (IGS20) sin transformar, ya que aún no se pueden obtener sistemáticamente desde `ramsac` las alturas POSGAR07 de referencia para calcular el delta altimétrico.
+- **Transferencia web→worker**: el archivo RINEX se almacena temporalmente en Redis (TTL 1 hora) y se recupera por el worker al inicio de la tarea. No se requieren volúmenes compartidos entre servicios.
 - **Archivos temporales**: se limpian automáticamente al finalizar cada job.
 
 ## Activar persistencia con PostgreSQL (futuro)

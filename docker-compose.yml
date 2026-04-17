@@ -1,8 +1,7 @@
 # docker-compose.yml — Entorno de desarrollo local completo
 #
 # Levanta: Redis + web (FastAPI) + worker (Celery) + Flower (monitor)
-# Los volúmenes nombrados (ppp_uploads, ppp_results) son compartidos
-# entre web y worker para que ambos puedan acceder a los archivos RINEX.
+# Los archivos RINEX se transfieren vía Redis (no se necesitan volúmenes compartidos).
 #
 # Uso:
 #   docker compose up --build      # primera vez o tras cambios en requirements.txt
@@ -12,10 +11,6 @@
 # Acceso:
 #   App:    http://localhost:8000
 #   Flower: http://localhost:5555
-
-volumes:
-  ppp_uploads:   # archivos RINEX subidos por el usuario (compartido web↔worker)
-  ppp_results:   # resultados temporales de NRCan (compartido web↔worker)
 
 services:
 
@@ -37,8 +32,6 @@ services:
     volumes:
       - ./app:/app/app          # hot reload — cambios en código sin rebuild
       - ./ppp:/app/ppp          # módulos geodésicos y pickles
-      - ppp_uploads:/tmp/ppp_uploads
-      - ppp_results:/tmp/ppp_results
     environment:
       - REDIS_URL=redis://redis:6379/0
       - PPP_DIR=/app/ppp
@@ -53,8 +46,6 @@ services:
     volumes:
       - ./app:/app/app
       - ./ppp:/app/ppp
-      - ppp_uploads:/tmp/ppp_uploads
-      - ppp_results:/tmp/ppp_results
     environment:
       - REDIS_URL=redis://redis:6379/0
       - PPP_DIR=/app/ppp

@@ -42,8 +42,9 @@ celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
-    result_expires=3600,  # resultados expiran en 1 hora
-    worker_max_tasks_per_child=10,  # evita memory leaks en workers largos
+    result_expires=3600,
+    worker_max_tasks_per_child=10,
+    broker_connection_retry_on_startup=True,
 )
 
 # ---------------------------------------------------------------------------

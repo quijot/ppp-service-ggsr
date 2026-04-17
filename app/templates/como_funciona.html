@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>¿Cómo funciona? — PPP Experimental GGSR</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <style>
@@ -199,21 +200,21 @@
       <div class="pipeline-num">01</div>
       <div class="pipeline-text">
         <strong>Envío a NRCan CSRS-PPP</strong>
-        <span>El archivo RINEX se envía a la API del Canadian Geodetic Survey. NRCan procesa las observaciones GNSS (GPS, GLONASS, Galileo) con órbitas y relojes precisos y devuelve coordenadas en IGS20 referidas a la época de las observaciones.</span>
+        <span>El archivo RINEX se envía a la API del Canadian Geodetic Survey. NRCan procesa las observaciones GNSS (GPS, GLONASS, Galileo) con órbitas y relojes precisos y devuelve coordenadas en ITRFx/IGSx referidas a la época de las observaciones.</span>
       </div>
     </div>
     <div class="pipeline-step">
       <div class="pipeline-num">02</div>
       <div class="pipeline-text">
         <strong>Parseo del archivo .sum</strong>
-        <span>NRCan devuelve un archivo de resultados en formato columnar v5.x. Se extraen la latitud y longitud estimadas (campo ESTIMATED de POS LAT/LON), la fecha de inicio de las observaciones (BEG) y el nombre del punto (MKR).</span>
+        <span>NRCan devuelve un archivo de resultados en formato columnar v5.x. Se extraen la latitud y longitud estimadas (campo ESTIMATED de POS LAT/LON/HGT), la fecha de inicio de las observaciones (BEG) y el nombre del punto (MKR).</span>
       </div>
     </div>
     <div class="pipeline-step">
       <div class="pipeline-num">03</div>
       <div class="pipeline-text">
-        <strong>Transformación IGS20 → POSGAR07</strong>
-        <span>Las coordenadas IGS20 se transforman al marco oficial argentino POSGAR07 mediante interpolación IDW sobre la red RAMSAC. Los parámetros de la interpolación se optimizan automáticamente por Cross-Validation Leave-One-Out.</span>
+        <strong>Transformación ITRF → POSGAR07</strong>
+        <span>Las coordenadas ITRFx/IGSx se transforman al marco oficial argentino POSGAR07 mediante interpolación IDW sobre la red RAMSAC. Los parámetros de la interpolación se optimizan automáticamente por Cross-Validation Leave-One-Out.</span>
       </div>
     </div>
     <div class="pipeline-step">

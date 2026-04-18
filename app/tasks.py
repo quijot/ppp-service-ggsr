@@ -14,6 +14,7 @@ Tareas adicionales:
 """
 
 import json
+import logging
 import pickle
 import shutil
 import sys
@@ -34,6 +35,7 @@ from app.config import get_settings
 from app.parser import parse_sum, SumParseError
 
 cfg = get_settings()
+logger = logging.getLogger(__name__)
 _redis = redis_lib.from_url(cfg.redis_url, decode_responses=False)
 
 # ---------------------------------------------------------------------------
@@ -150,8 +152,14 @@ def update_geodata(self, full: bool = False):
 # ---------------------------------------------------------------------------
 @worker_ready.connect
 def on_worker_ready(sender, **kwargs):
-    if not _redis.exists("geodata:ramsac"):
-        update_geodata.apply_async(kwargs={"full": True})
+    try:
+        if not _redis.exists("geodata:ramsac"):
+            logger.info("geodata:ramsac not found in Redis — launching bootstrap")
+            update_geodata.apply_async(kwargs={"full": True})
+        else:
+            logger.info("geodata:ramsac found in Redis — skipping bootstrap")
+    except Exception as exc:
+        logger.error("worker_ready bootstrap failed: %s", exc, exc_info=True)
 
 
 # ---------------------------------------------------------------------------

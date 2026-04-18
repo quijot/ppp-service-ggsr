@@ -140,14 +140,13 @@ El volumen no se puede automatizar via `railway.toml`. Hacerlo desde el dashboar
 > Worker service → Storage → Add Volume → Mount Path: `/app/ppp/data`
 
 El volumen persiste entre deploys y almacena los pickles y caché de archivos `.crd` (~40 MB).
-Sin el volumen el sistema igual funciona, pero el bootstrap se relanza completo en cada deploy (~20 min).
+Sin el volumen el sistema igual funciona, pero el bootstrap se relanza completo en cada deploy (~2 hs).
 
 **6. Primer deploy**
 
 Al arrancar por primera vez (o si Redis está vacío), el worker lanza automáticamente
 `update_geodata(full=True)` via la señal `worker_ready`. Descarga RAMSAC + soluciones
-IGN-Ar desde la semana 1388 (~20 min). Durante ese tiempo los jobs PPP fallan con un
-mensaje claro. Las actualizaciones incrementales posteriores corren cada martes 3:00 UTC via Celery Beat.
+IGN-Ar desde la semana 1388 (~2 hs). Durante ese tiempo los jobs PPP fallan con un mensaje claro. Las actualizaciones incrementales posteriores corren cada martes 3:00 UTC via Celery Beat.
 
 **Verificar estado desde Railway shell** (`railway shell --service worker`):
 ```bash

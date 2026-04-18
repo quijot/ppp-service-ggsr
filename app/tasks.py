@@ -284,7 +284,7 @@ def process_rinex(self, job_id: str, rinex_filename: str):
     if not geodata_en_redis and not geodata_en_disco:
         en_proceso = _redis.exists("geodata:updating")
         msg = (
-            "Datos geodésicos en inicialización (~20 min en el primer arranque). "
+            "Datos geodésicos en inicialización (~2 hs desde su inicio). "
             "Reintentá en unos minutos."
             if en_proceso
             else "Datos geodésicos no disponibles. Contactá al administrador."

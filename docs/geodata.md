@@ -12,7 +12,7 @@ SIRGAS fue removido del pipeline activo (ver historial de git si se necesita rec
 En producción (Railway), la geodata se actualiza automáticamente:
 
 - **Tarea Celery** `update_geodata` — corre todos los martes a las 3:00 UTC via Celery Beat (embebido en el worker).
-- **Bootstrap automático** — si Redis no tiene datos al arrancar el worker (primer deploy o después de un flush), se lanza automáticamente una descarga completa desde semana GPS 1388. Tarda ~20 minutos.
+- **Bootstrap automático** — si Redis no tiene datos al arrancar el worker (primer deploy o después de un flush), se lanza automáticamente una descarga completa desde semana GPS 1388. Tarda ~2 horas (descarga ~7000 archivos .crd vía FTP).
 - **Almacenamiento**: los datos se guardan en Redis (compartido entre web y worker) y también como pickles en el volumen del worker (`PPP_DATA_DIR`, por defecto `/app/ppp/data`).
 
 ### Fallback en cascada

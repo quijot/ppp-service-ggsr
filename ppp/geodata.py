@@ -46,7 +46,7 @@ def _load(key: str, filename: str):
         raise FileNotFoundError(
             f"Geodata '{key}' no disponible. "
             "Redis vacío y pickle no encontrado. "
-            "El worker puede estar inicializando los datos (~20 min)."
+            "El worker puede estar inicializando los datos (~2 hs desde su inicio)."
         )
     return data
 

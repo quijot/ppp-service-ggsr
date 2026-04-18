@@ -97,61 +97,66 @@ Railway requiere **tres servicios** para este proyecto:
 
 | Servicio | Tipo | Descripción |
 |---|---|---|
-| **Redis** | Catálogo Railway | Broker y backend de Celery |
-| **web** | GitHub repo | FastAPI (Uvicorn) |
-| **worker** | GitHub repo | Celery worker |
+| **Redis** | Catálogo Railway | Broker y backend de Celery + geodata compartida |
+| **web** | GitHub repo | FastAPI (Uvicorn) — usa `railway.web.toml` |
+| **worker** | GitHub repo | Celery worker + Beat — usa `railway.worker.toml` |
+
+Cada servicio apunta al mismo repo. En Settings → Railway Config File, configurar:
+- `web` → `railway.web.toml`
+- `worker` → `railway.worker.toml`
 
 ### Procedimiento
 
 **1. Crear el proyecto en Railway**
-- New Project → Deploy from GitHub repo → seleccionar `ppp-service-ggsr`
+- New Project → Deploy from GitHub repo → seleccionar el repo
 
 **2. Agregar Redis**
-- En el proyecto: Add Service → Redis
+- Add Service → Redis
 - Railway inyecta `REDIS_URL` automáticamente a los servicios que lo linken
 
 **3. Configurar el servicio `web`**
-- Railway detecta el `Dockerfile` y `railway.toml` automáticamente
-- Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Linkear Redis (Variables → Add Reference → REDIS_URL)
 - Variables de entorno:
 
 | Variable | Valor |
 |---|---|
 | `REDIS_URL` | referencia al servicio Redis |
-| `CSRS_USER_EMAIL` | tu email registrado en NRCan |
-| `CSRS_GET_MAX` | `60` (máx 10 min de espera por respuesta de NRCan) |
+| `CSRS_USER_EMAIL` | email registrado en NRCan |
+| `CSRS_GET_MAX` | `60` |
 | `PPP_DIR` | `/app/ppp` |
 
 **4. Configurar el servicio `worker`**
-- Add Service → GitHub Repo → mismo repo
-- Start Command: `celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2`
-- Mismas variables de entorno que `web`
-- **No** necesita puerto expuesto
+- Mismas variables que `web`, más:
 
-**5. Subir los archivos `.pickle`**
+| Variable | Valor |
+|---|---|
+| `PPP_DATA_DIR` | `/app/ppp/data` |
+| `IGN_FTP_USER` | usuario FTP IGN-Ar |
+| `IGN_FTP_PASS` | contraseña FTP IGN-Ar |
 
-Los pickles no están en git. Hay dos opciones:
+**5. Crear el volumen persistente en el worker** ⚠️ paso manual
 
-**Opción A — Railway CLI** (recomendada para pickles pequeños):
+El volumen no se puede automatizar via `railway.toml`. Hacerlo desde el dashboard:
+
+> Worker service → Storage → Add Volume → Mount Path: `/app/ppp/data`
+
+El volumen persiste entre deploys y almacena los pickles y caché de archivos `.crd` (~40 MB).
+Sin el volumen el sistema igual funciona, pero el bootstrap se relanza completo en cada deploy (~20 min).
+
+**6. Primer deploy**
+
+Al arrancar por primera vez (o si Redis está vacío), el worker lanza automáticamente
+`update_geodata(full=True)` via la señal `worker_ready`. Descarga RAMSAC + soluciones
+IGN-Ar desde la semana 1388 (~20 min). Durante ese tiempo los jobs PPP fallan con un
+mensaje claro. Las actualizaciones incrementales posteriores corren cada martes 3:00 UTC via Celery Beat.
+
+**Verificar estado desde Railway shell** (`railway shell --service worker`):
 ```bash
-# Instalar Railway CLI
-npm install -g @railway/cli
-railway login
+# Ver última semana descargada
+python -c "import redis, os; r = redis.from_url(os.environ['REDIS_URL']); print(r.get('geodata:last_week'))"
 
-# Copiar pickles al servicio web
-railway run --service web cp /ruta/local/ramsac.pickle /app/ppp/ramsac.pickle
-railway run --service web cp /ruta/local/iws.pickle    /app/ppp/iws.pickle
-railway run --service web cp /ruta/local/sws.pickle    /app/ppp/sws.pickle
+# Lanzar actualización incremental manualmente
+python -c "from app.tasks import update_geodata; update_geodata.apply(kwargs={'full': False})"
 ```
-
-**Opción B — Volumen persistente** (recomendada para actualización frecuente):
-- En Railway: configurar un volumen persistente montado en `/app/ppp`
-- Subir los pickles al volumen vía SSH o CLI
-- El volumen persiste entre deploys
-
-> **Nota**: los pickles se actualizan periódicamente (nuevas semanas de la red RAMSAC).
-> Con la Opción B podés actualizarlos sin necesidad de redeploy.
 
 ---
 
@@ -159,16 +164,23 @@ railway run --service web cp /ruta/local/sws.pickle    /app/ppp/sws.pickle
 
 | Variable | Default | Descripción |
 |---|---|---|
-| `REDIS_URL` | `redis://localhost:6379/0` | URL de Redis |
-| `CSRS_USER_EMAIL` | `ppp@municipalidad.gob.ar` | Email registrado en NRCan |
+| `REDIS_URL` | inyectado por Railway / `redis://localhost:6379/0` en local | URL de Redis |
+| `CSRS_USER_EMAIL` | — | Email registrado en NRCan |
 | `CSRS_GET_MAX` | `60` | Intentos de polling (× 10s = tiempo máx. de espera) |
 | `CSRS_MODE` | `Static` | Modo de procesamiento PPP |
 | `CSRS_REF` | `ITRF` | Marco de referencia solicitado a NRCan |
-| `PPP_DIR` | `/app/ppp` | Path al directorio de módulos geodésicos |
+| `PPP_DIR` | `/app/ppp` | Path a los módulos Python geodésicos — **nunca montar un volumen aquí** |
+| `PPP_DATA_DIR` | *(obligatorio en Railway)* | Path para pickles y caché .crd — montar el volumen aquí (`/app/ppp/data`). Si no se setea, cae a `PPP_DIR`, lo que oculta los módulos si hay un volumen montado. |
+| `IGN_FTP_USER` | — | Usuario FTP IGN-Ar (solo worker) |
+| `IGN_FTP_PASS` | — | Contraseña FTP IGN-Ar (solo worker) |
 | `RESULTS_DIR` | `/tmp/ppp_results` | Path para resultados temporales de NRCan (worker) |
 | `DATABASE_URL` | *(vacío)* | PostgreSQL — para activar persistencia de resultados |
 
 ---
+
+## Documentación técnica
+
+- [Geodata RAMSAC — pipeline de obtención y actualización](docs/geodata.md)
 
 ## Notas técnicas
 

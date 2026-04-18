@@ -17,7 +17,8 @@ requests-toolbelt==0.10.1
 # ── Geodesia / GNSS ───────────────────────────────────────────────────────────
 geojson==3.1.0
 geographiclib==2.0
-gnsstime                # semanas GPS — verificar disponibilidad en PyPI
+gnsstime                # semanas GPS
+pygeodesy               # conversión XYZ ↔ lat/lon (geodata_updater)
 
 # ── Módulos propios (ppp/) ────────────────────────────────────────────────────
 # transform.py, geodata.py, calc.py, itrf2posgar.py y archivos relacionados

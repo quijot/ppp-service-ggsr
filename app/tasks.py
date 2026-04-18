@@ -8,20 +8,26 @@ Flujo:
   4. Parseo del .sum (parser.py)
   5. Transformación ITRF→POSGAR07 (transform.py)
   6. Retorno de resultado estructurado a Redis
+
+Tareas adicionales:
+  update_geodata — descarga/actualiza ramsac + iws en Redis y en disco
 """
 
 import json
-import os
+import pickle
 import shutil
 import sys
 import tempfile
 import time
 import zipfile
+import zlib
 from pathlib import Path
 
 import redis as redis_lib
 import requests
 from celery import Celery
+from celery.schedules import crontab
+from celery.signals import worker_ready
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 from app.config import get_settings
@@ -45,6 +51,13 @@ celery_app.conf.update(
     result_expires=3600,
     worker_max_tasks_per_child=10,
     broker_connection_retry_on_startup=True,
+    timezone="UTC",
+    beat_schedule={
+        "update-geodata-weekly": {
+            "task": "ppp_tasks.update_geodata",
+            "schedule": crontab(hour=3, minute=0, day_of_week=2),  # martes 3am UTC
+        }
+    },
 )
 
 # ---------------------------------------------------------------------------
@@ -57,13 +70,93 @@ CSRS_RESULT_URL = f"{CSRS_DOMAIN}/CSRS-PPP/service/results/file?id={{keyid}}"
 
 
 # ---------------------------------------------------------------------------
-# Helpers para agregar el path de ppp/ al sys.path y usar calc2 como módulo
+# Helpers para sys.path (módulos ppp/)
 # ---------------------------------------------------------------------------
 def _ensure_ppp_in_path():
     if cfg.ppp_dir not in sys.path:
         sys.path.insert(0, cfg.ppp_dir)
 
 
+# ---------------------------------------------------------------------------
+# Helpers de geodata en Redis
+# ---------------------------------------------------------------------------
+def _geodata_to_redis(key: str, data) -> None:
+    _redis.set(f"geodata:{key}", zlib.compress(pickle.dumps(data)))
+
+
+def _geodata_from_redis(key: str):
+    raw = _redis.get(f"geodata:{key}")
+    return pickle.loads(zlib.decompress(raw)) if raw else None
+
+
+def _save_pickle(filename: str, data) -> None:
+    path = Path(cfg.data_dir) / filename
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(pickle.dumps(data))
+
+
+# ---------------------------------------------------------------------------
+# Tarea: update_geodata
+# ---------------------------------------------------------------------------
+@celery_app.task(bind=True, name="ppp_tasks.update_geodata")
+def update_geodata(self, full: bool = False):
+    """Descarga RAMSAC + iws de IGN-Ar, actualiza Redis y los pickles locales.
+
+    full=True  → bootstrap completo desde semana 1388.
+    full=False → solo semanas nuevas desde geodata:last_week (incremental).
+    """
+    from app.geodata_updater import fetch_ramsac, fetch_iws_incremental
+    from gnsstime import gnsstime as gt
+
+    _redis.set("geodata:updating", "1")
+    try:
+        # --- RAMSAC ---
+        self.update_state(state="PROGRESS", meta={"step": "ramsac"})
+        ramsac = fetch_ramsac()
+        _geodata_to_redis("ramsac", ramsac)
+        _save_pickle("ramsac.pickle", ramsac)
+
+        # --- iws ---
+        last_raw = _redis.get("geodata:last_week")
+        if last_raw:
+            last_raw = last_raw.decode() if isinstance(last_raw, bytes) else last_raw
+
+        if full or not last_raw:
+            from_week, existing = 1388, {}
+        else:
+            from_week = int(last_raw) + 1
+            existing = _geodata_from_redis("iws") or {}
+
+        to_week = gt.now().gpsw + 1
+        if from_week < to_week:
+            self.update_state(
+                state="PROGRESS",
+                meta={"step": "iws", "from_week": from_week, "to_week": to_week - 1},
+            )
+            crd_dir = Path(cfg.data_dir) / "iws_crd"
+            iws = fetch_iws_incremental(from_week, to_week, crd_dir, existing)
+            _geodata_to_redis("iws", iws)
+            _save_pickle("iws.pickle", iws)
+            _redis.set("geodata:last_week", str(max(iws)))
+
+        return {"status": "ok", "last_week": str(_redis.get("geodata:last_week") or "")}
+
+    finally:
+        _redis.delete("geodata:updating")
+
+
+# ---------------------------------------------------------------------------
+# Señal worker_ready: bootstrap automático si Redis está vacío
+# ---------------------------------------------------------------------------
+@worker_ready.connect
+def on_worker_ready(sender, **kwargs):
+    if not _redis.exists("geodata:ramsac"):
+        update_geodata.apply_async(kwargs={"full": True})
+
+
+# ---------------------------------------------------------------------------
+# _run_transform
+# ---------------------------------------------------------------------------
 def _run_transform(
     lat: float,
     lon: float,
@@ -75,11 +168,7 @@ def _run_transform(
     sigma_lon: float = 0.0,
     sigma_hgt: float = 0.0,
 ) -> dict:
-    """
-    Transforma coordenadas PPP ITRF → POSGAR07 y construye el resultado.
-    La altura elipsoidal se reporta en IGS20 sin transformar (ramsac aún no
-    tiene coordenadas altimétricas de referencia POSGAR07).
-    """
+    """Transforma coordenadas PPP ITRF → POSGAR07 y construye el resultado."""
     _ensure_ppp_in_path()
 
     from gnsstime import gnsstime as gt
@@ -97,48 +186,6 @@ def _run_transform(
     lon_posgar_dms = dd2dms(res.lon)
     lat_ppp_dms = dd2dms(lat)
     lon_ppp_dms = dd2dms(lon)
-
-#     # Descripción de calidad del resultado
-#     if res.cv_error_cm < 0:
-#         quality_str = "Error CV no disponible (pocas EP)"
-#         quality_class = "warn"
-#     elif res.cv_error_cm < 5:
-#         quality_str = f"Buena ({res.cv_error_cm:.1f} cm CV)"
-#         quality_class = "good"
-#     elif res.cv_error_cm < 10:
-#         quality_str = f"Moderada ({res.cv_error_cm:.1f} cm CV)"
-#         quality_class = "warn"
-#     else:
-#         quality_str = f"Baja ({res.cv_error_cm:.1f} cm CV)"
-#         quality_class = "poor"
-
-#     nearest_lines = [f"{ep}: {dist:.1f} km" for ep, dist in res.ep_nearest.items()]
-
-#     result_html = f"""
-# <div class="result-block">
-#   <h4>Resultado POSGAR07</h4>
-#   <p class="coords-lead"><strong>{lat_posgar_dms}, {lon_posgar_dms}</strong></p>
-#   <p class="quality quality-{quality_class}">Calidad estimada: {quality_str}</p>
-# </div>
-# <hr>
-# <div class="report-block">
-#   <h4>Reporte</h4>
-#   <p>
-#     <strong>PPP results</strong> (semana GPS {obs_wk}):<br>
-#     &nbsp;&nbsp;{lat:.10f}, {lon:.10f}<br>
-#     &nbsp;&nbsp;{lat_ppp_dms}, {lon_ppp_dms}
-#   </p>
-#   <p>
-#     <strong>Transformación IDW</strong>
-#     (semana {res.wk_used}, n={res.n_used}, p={res.p_used},
-#     radio={res.radius_km:.0f} km, {res.n_ep_cv} EP en CV)<br>
-#     &nbsp;&nbsp;EP usadas:<br>
-#     &nbsp;&nbsp;&nbsp;&nbsp;{"<br>&nbsp;&nbsp;&nbsp;&nbsp;".join(nearest_lines)}<br>
-#     &nbsp;&nbsp;{res.lat:.15f}, {res.lon:.15f}<br>
-#     &nbsp;&nbsp;<strong>{lat_posgar_dms}, {lon_posgar_dms}</strong>
-#   </p>
-# </div>
-# """
 
     # --- GeoJSON para Leaflet ---
     point_desc = "<b>Coordenadas POSGAR07</b><br><b>lat:</b> {}<br><b>lon:</b> {}"
@@ -209,23 +256,38 @@ def _run_transform(
 
 
 # ---------------------------------------------------------------------------
-# Tarea principal
+# Tarea principal: process_rinex
 # ---------------------------------------------------------------------------
 @celery_app.task(bind=True, name="ppp_tasks.process_rinex")
 def process_rinex(self, job_id: str, rinex_filename: str):
-    """
-    Pipeline completo: RINEX → NRCan → .sum → POSGAR07.
-    El estado se va actualizando en Redis via self.update_state().
-    El contenido del RINEX se recupera de Redis (clave rinex:{job_id}).
-    """
+    """Pipeline completo: RINEX → NRCan → .sum → POSGAR07."""
 
     def _update(status: str, msg: str = ""):
         self.update_state(state=status, meta={"msg": msg})
 
-    # Recuperar bytes del RINEX desde Redis y escribir a un temp file local
+    # ------------------------------------------------------------------
+    # Preflight: verificar disponibilidad de geodata
+    # ------------------------------------------------------------------
+    geodata_en_redis = _redis.exists("geodata:ramsac")
+    geodata_en_disco = (Path(cfg.data_dir) / "ramsac.pickle").exists()
+    if not geodata_en_redis and not geodata_en_disco:
+        en_proceso = _redis.exists("geodata:updating")
+        msg = (
+            "Datos geodésicos en inicialización (~20 min en el primer arranque). "
+            "Reintentá en unos minutos."
+            if en_proceso
+            else "Datos geodésicos no disponibles. Contactá al administrador."
+        )
+        raise RuntimeError(msg)
+
+    # ------------------------------------------------------------------
+    # Recuperar RINEX desde Redis
+    # ------------------------------------------------------------------
     rinex_bytes = _redis.get(f"rinex:{job_id}")
     if not rinex_bytes:
-        raise RuntimeError("Archivo RINEX no encontrado en Redis (expiró o nunca se subió).")
+        raise RuntimeError(
+            "Archivo RINEX no encontrado en Redis (expiró o nunca se subió)."
+        )
     _redis.delete(f"rinex:{job_id}")
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="ppp_"))
@@ -235,7 +297,6 @@ def process_rinex(self, job_id: str, rinex_filename: str):
 
     work_dir = Path(cfg.results_dir) / job_id
     work_dir.mkdir(parents=True, exist_ok=True)
-    rinex_name = rinex_file.stem
 
     # ------------------------------------------------------------------
     # 1. Enviar a NRCan
@@ -339,7 +400,11 @@ def process_rinex(self, job_id: str, rinex_filename: str):
             try:
                 with zipfile.ZipFile(errors_zip, "r") as ez:
                     if "errors.txt" in ez.namelist():
-                        nrcan_error = ez.read("errors.txt").decode("utf-8", errors="replace").strip()
+                        nrcan_error = (
+                            ez.read("errors.txt")
+                            .decode("utf-8", errors="replace")
+                            .strip()
+                        )
                         break
             except zipfile.BadZipFile:
                 pass
@@ -375,7 +440,6 @@ def process_rinex(self, job_id: str, rinex_filename: str):
         sigma_hgt=ppp.sigma_hgt,
     )
 
-    # Serializar GeoJSON (es un objeto geojson, no un dict puro)
     geojson_dict = json.loads(json.dumps(calc_result["geojson"]))
 
     # ------------------------------------------------------------------

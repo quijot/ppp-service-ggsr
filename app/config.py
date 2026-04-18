@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     csrs_ref: str = "ITRF"
 
     # Paths internos
-    ppp_dir: str = "/app/ppp"  # donde viven calc2.py, pickles, etc.
+    ppp_dir: str = "/app/ppp"       # módulos Python (sys.path) — nunca montar volumen aquí
+    ppp_data_dir: str = ""          # datos (pickles, .crd) — montar volumen aquí en Railway
     results_dir: str = "/tmp/ppp_results"
+
+    @property
+    def data_dir(self) -> str:
+        return self.ppp_data_dir or self.ppp_dir
 
     # PostgreSQL (opcional por ahora, se activa cuando esté disponible)
     database_url: str = ""

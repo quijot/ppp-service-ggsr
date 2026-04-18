@@ -268,8 +268,11 @@ def process_rinex(self, job_id: str, rinex_filename: str):
     # ------------------------------------------------------------------
     # Preflight: verificar disponibilidad de geodata
     # ------------------------------------------------------------------
-    geodata_en_redis = _redis.exists("geodata:ramsac")
-    geodata_en_disco = (Path(cfg.data_dir) / "ramsac.pickle").exists()
+    geodata_en_redis = _redis.exists("geodata:ramsac") and _redis.exists("geodata:iws")
+    geodata_en_disco = (
+        (Path(cfg.data_dir) / "ramsac.pickle").exists()
+        and (Path(cfg.data_dir) / "iws.pickle").exists()
+    )
     if not geodata_en_redis and not geodata_en_disco:
         en_proceso = _redis.exists("geodata:updating")
         msg = (

@@ -188,7 +188,7 @@ def _run_transform(
     obs_wk = obs_dt.gpsw
 
     # --- Transformación principal ---
-    res = transform_itrf_to_posgar07(lat, lon, obs_wk, iws, ramsac)
+    res = transform_itrf_to_posgar07(lat, lon, obs_wk, iws, ramsac, hgt=hgt)
 
     lat_posgar_dms = dd2dms(res.lat)
     lon_posgar_dms = dd2dms(res.lon)
@@ -196,13 +196,21 @@ def _run_transform(
     lon_ppp_dms = dd2dms(lon)
 
     # --- GeoJSON para Leaflet ---
-    point_desc = "<b>Coordenadas POSGAR07</b><br><b>lat:</b> {}<br><b>lon:</b> {}"
+    _alt_line = (
+        f"<br><b>alt:</b> {res.alt:.4f} m" if res.alt is not None else ""
+    )
+    point_desc = (
+        f"<b>Coordenadas POSGAR07</b>"
+        f"<br><b>lat:</b> {lat_posgar_dms}"
+        f"<br><b>lon:</b> {lon_posgar_dms}"
+        f"{_alt_line}"
+    )
     features = [
         Feature(
             geometry=Point([res.lon, res.lat]),
             properties={
                 "name": marker.upper(),
-                "description": point_desc.format(lat_posgar_dms, lon_posgar_dms),
+                "description": point_desc,
                 "color": "rgba(220, 38, 38, 0.85)",
                 "is_base": True,
             },
@@ -238,7 +246,8 @@ def _run_transform(
         "geojson": dict(geojson),
         "lat": res.lat,
         "lon": res.lon,
-        "hgt": hgt,  # altura IGS20, sin transformar
+        "hgt": hgt,
+        "alt_posgar": res.alt,  # altura POSGAR07 (None si ramsac no tiene alt)
         "marker": marker,
         "lat_posgar_dms": lat_posgar_dms,
         "lon_posgar_dms": lon_posgar_dms,
@@ -249,6 +258,7 @@ def _run_transform(
         "cv_error_cm": res.cv_error_cm,
         "cv_error_lat_cm": res.cv_error_lat_cm,
         "cv_error_lon_cm": res.cv_error_lon_cm,
+        "cv_error_alt_cm": res.cv_error_alt_cm,
         "n_used": res.n_used,
         "p_used": res.p_used,
         "n_ep_cv": res.n_ep_cv,
@@ -468,6 +478,7 @@ def process_rinex(self, job_id: str, rinex_filename: str):
         "lat": calc_result["lat"],
         "lon": calc_result["lon"],
         "hgt": calc_result["hgt"],
+        "alt_posgar": calc_result["alt_posgar"],
         "marker": calc_result["marker"],
         "lat_posgar_dms": calc_result["lat_posgar_dms"],
         "lon_posgar_dms": calc_result["lon_posgar_dms"],
@@ -478,6 +489,7 @@ def process_rinex(self, job_id: str, rinex_filename: str):
         "cv_error_cm": calc_result["cv_error_cm"],
         "cv_error_lat_cm": calc_result["cv_error_lat_cm"],
         "cv_error_lon_cm": calc_result["cv_error_lon_cm"],
+        "cv_error_alt_cm": calc_result["cv_error_alt_cm"],
         "n_used": calc_result["n_used"],
         "p_used": calc_result["p_used"],
         "n_ep_cv": calc_result["n_ep_cv"],

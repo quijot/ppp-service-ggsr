@@ -38,7 +38,7 @@ ALLOWED_EXTENSIONS = {
     ".zip",
     ".Z",
     ".??o",
-    "??d",
+    ".??d",
     # formatos RINEX 2 con extensión de año: .15o, .24o, etc.
 }
 
@@ -127,6 +127,7 @@ async def job_status(job_id: str):
                 "lat": res.get("lat"),
                 "lon": res.get("lon"),
                 "hgt": res.get("hgt"),
+                "alt_posgar": res.get("alt_posgar"),
                 "marker": res.get("marker", "Punto"),
                 "lat_posgar_dms": res.get("lat_posgar_dms", ""),
                 "lon_posgar_dms": res.get("lon_posgar_dms", ""),
@@ -137,6 +138,7 @@ async def job_status(job_id: str):
                 "cv_error_cm": res.get("cv_error_cm", -1),
                 "cv_error_lat_cm": res.get("cv_error_lat_cm", -1),
                 "cv_error_lon_cm": res.get("cv_error_lon_cm", -1),
+                "cv_error_alt_cm": res.get("cv_error_alt_cm"),
                 "n_used": res.get("n_used"),
                 "p_used": res.get("p_used"),
                 "n_ep_cv": res.get("n_ep_cv"),
@@ -182,14 +184,15 @@ async def transform_direct(
         obs_dt = gt.strptime(date, "%Y-%m-%d")
         obs_wk = obs_dt.gpsw
 
-        res = transform_itrf_to_posgar07(lat, lon, obs_wk, iws, ramsac)
+        res = transform_itrf_to_posgar07(lat, lon, obs_wk, iws, ramsac, hgt=hgt)
 
         return JSONResponse(
             {
                 "status": "done",
                 "lat": res.lat,
                 "lon": res.lon,
-                "hgt": hgt,  # altura sin transformar
+                "hgt": hgt,
+                "alt_posgar": res.alt,
                 "lat_posgar_dms": dd2dms(res.lat),
                 "lon_posgar_dms": dd2dms(res.lon),
                 "lat_input_dms": dd2dms(lat),
@@ -199,6 +202,7 @@ async def transform_direct(
                 "cv_error_cm": res.cv_error_cm,
                 "cv_error_lat_cm": res.cv_error_lat_cm,
                 "cv_error_lon_cm": res.cv_error_lon_cm,
+                "cv_error_alt_cm": res.cv_error_alt_cm,
                 "n_used": res.n_used,
                 "p_used": res.p_used,
                 "n_ep_cv": res.n_ep_cv,

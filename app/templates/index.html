@@ -893,7 +893,18 @@
       // Combinación en cuadratura: √(σ_ppp² + σ_cv²)
       const combLat = Math.sqrt(pppRealLat ** 2 + (d.cv_error_lat_cm || 0) ** 2).toFixed(1);
       const combLon = Math.sqrt(pppRealLon ** 2 + (d.cv_error_lon_cm || 0) ** 2).toFixed(1);
-      const combVec = Math.sqrt((Math.max(d.sigma_lat * 100, 1)) ** 2 + (Math.max(d.sigma_lon * 100, 1)) ** 2 + d.cv_error_cm ** 2).toFixed(1);
+      // Si hay altura
+      const hasAlt = d.cv_error_alt_cm != null && d.cv_error_alt_cm >= 0 && d.sigma_hgt;
+      let altChip = '', combVec;
+      if (hasAlt) {
+        const sigAlt = d.sigma_hgt * 100;  // m → cm
+        const pppRealHgt = Math.max(sigAlt, 1.0);
+        const combAlt = Math.sqrt(pppRealHgt ** 2 + d.cv_error_alt_cm ** 2).toFixed(1);
+        combVec = Math.sqrt(combLat ** 2 + combLon ** 2 + combAlt ** 2).toFixed(1);
+        altChip = `<div class="cv-chip">Δalt <span>±${combAlt} cm</span></div>`;
+      } else {
+        combVec = Math.sqrt(combLat ** 2 + combLon ** 2).toFixed(1);
+      }
 
       return `
   <div style="margin-top:.6rem;padding:.5rem .7rem;background:rgba(45,51,59,.5);border-radius:3px;font-size:.7rem">
@@ -903,7 +914,8 @@
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">
       <div class="cv-chip">Δlat <span>±${combLat} cm</span></div>
       <div class="cv-chip">Δlon <span>±${combLon} cm</span></div>
-      <div class="cv-chip">vector <span>±${combVec} cm</span></div>
+      ${altChip}
+      <div class="cv-chip">vector ${hasAlt ? '3D' : '2D'} <span>±${combVec} cm</span></div>
     </div>
     <div style="margin-top:.35rem;color:var(--muted);font-size:.65rem;line-height:1.4">
       El σ(95%) de NRCan es una incertidumbre <em>formal</em> del ajuste, típicamente
@@ -924,11 +936,17 @@
       // Desglose CV por componente
       let cvBreakdown = '';
       if (d.cv_error_cm >= 0) {
+        const hasAlt = d.cv_error_alt_cm != null && d.cv_error_alt_cm >= 0;
+        const cvLat = d.cv_error_lat_cm || 0, cvLon = d.cv_error_lon_cm || 0;
+        const vec = hasAlt
+          ? Math.sqrt(cvLat ** 2 + cvLon ** 2 + d.cv_error_alt_cm ** 2).toFixed(1)
+          : Math.sqrt(cvLat ** 2 + cvLon ** 2).toFixed(1);
         cvBreakdown = `
       <div class="cv-breakdown">
         <div class="cv-chip">Δlat <span>±${(d.cv_error_lat_cm || 0).toFixed(1)} cm</span></div>
         <div class="cv-chip">Δlon <span>±${(d.cv_error_lon_cm || 0).toFixed(1)} cm</span></div>
-        <div class="cv-chip">vector <span>±${d.cv_error_cm.toFixed(1)} cm</span></div>
+        ${hasAlt ? `<div class="cv-chip">Δalt <span>±${d.cv_error_alt_cm.toFixed(1)} cm</span></div>` : ''}
+        <div class="cv-chip">vector ${hasAlt ? '3D' : '2D'} <span>±${vec} cm</span></div>
       </div>`;
       }
 
@@ -973,7 +991,7 @@
   <div class="site-name">📍 ${(d.marker || 'PUNTO').toUpperCase()} — ${makeTip('POSGAR07')}</div>
   <div class="coords-val">${d.lat_posgar_dms}</div>
   <div class="coords-val">${d.lon_posgar_dms}</div>
-  ${d.hgt_str ? `<div class="coords-hgt">Alt. elips.: ${d.hgt_str} m <span style="font-size:.65rem;color:var(--muted)">(IGS20, sin transformar)</span></div>` : ''}
+  ${d.alt_posgar != null ? `<div class="coords-hgt">Alt. elips.: ${d.alt_posgar.toFixed(4)} m</div>` : d.hgt_str ? `<div class="coords-hgt">Alt. elips.: ${d.hgt_str} m <span style="font-size:.65rem;color:var(--muted)">(IGS20, sin transformar)</span></div>` : ''}
   <div class="coords-ref">ITRF2005 · época 2006.632</div>
   <div class="quality-badge ${qClass}">⬤ ${qLabel}</div>
   ${cvBreakdown}

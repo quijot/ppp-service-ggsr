@@ -78,19 +78,21 @@ from geographiclib.geodesic import Geodesic
 TransformResult = namedtuple(
     "TransformResult",
     [
-        "lat",  # latitud POSGAR07 transformada (grados decimales)
-        "lon",  # longitud POSGAR07 transformada (grados decimales)
-        "cv_error_cm",  # error estimado por Cross-Validation (cm), indicador de calidad
+        "lat",              # latitud POSGAR07 transformada (grados decimales)
+        "lon",              # longitud POSGAR07 transformada (grados decimales)
+        "cv_error_cm",      # error CV vectorial 2D horizontal (cm)
         "cv_error_lat_cm",  # error CV componente latitud (cm)
         "cv_error_lon_cm",  # error CV componente longitud (cm)
-        "n_ep_used",  # cantidad de EP usadas en la interpolación final
-        "n_ep_cv",  # cantidad de EP usadas en el CV (base estadística)
-        "n_used",  # parámetro n elegido para IDW
-        "p_used",  # parámetro p elegido para IDW
-        "wk_used",  # semana GPS efectivamente usada
-        "ep_nearest",  # dict {nombre_EP: distancia_km} de las EP usadas
-        "radius_km",  # radio de búsqueda usado (puede ser expandido)
+        "n_ep_cv",          # cantidad de EP usadas en el CV (base estadística)
+        "n_used",           # parámetro n elegido para IDW
+        "p_used",           # parámetro p elegido para IDW
+        "wk_used",          # semana GPS efectivamente usada
+        "ep_nearest",       # dict {nombre_EP: distancia_km} de las EP usadas
+        "radius_km",        # radio de búsqueda usado (puede ser expandido)
+        "alt",              # altura elipsoidal POSGAR07 (m), None si no aplica
+        "cv_error_alt_cm",  # error CV altimétrico (cm), None si no aplica
     ],
+    defaults=(None, None),  # alt y cv_error_alt_cm son opcionales
 )
 
 
@@ -247,13 +249,16 @@ def _load_candidates(
         dlat_sec = (eps_wk[ep]["lat"] - ref_coord["lat"]) * 3600
         dlon_sec = (eps_wk[ep]["lon"] - ref_coord["lon"]) * 3600
 
-        candidates[ep] = {
+        candidate = {
             "lat": ref_coord["lat"],
             "lon": ref_coord["lon"],
             "dlat_cm": dlat_sec * am,
             "dlon_cm": dlon_sec * ap,
             "dist_km": dist,
         }
+        if "alt" in ref_coord and "alt" in eps_wk[ep]:
+            candidate["dalt_m"] = eps_wk[ep]["alt"] - ref_coord["alt"]
+        candidates[ep] = candidate
 
     return candidates
 
@@ -306,6 +311,14 @@ def _filter_outliers(candidates: dict) -> dict:
 # ---------------------------------------------------------------------------
 # IDW
 # ---------------------------------------------------------------------------
+
+
+def _idw_1d(values_dists: list, n: int, p: int) -> float:
+    """IDW para interpolación de un escalar (valor, distancia_km)."""
+    sorted_data = sorted(values_dists, key=lambda x: x[1])[:n]
+    weights = [1.0 / max(x[1], 1e-6) ** p for x in sorted_data]
+    W = sum(weights)
+    return sum(w * x[0] for w, x in zip(weights, sorted_data)) / W
 
 
 def _idw(ep_data: list, n: int, p: int) -> tuple[float, float]:
@@ -428,6 +441,27 @@ def _cv_loo_error(
     )
 
 
+def _cv_loo_error_1d(candidates: dict, n: int, p: int) -> float | None:
+    """CV-LOO altimétrico sobre EP con dalt_m. Retorna error medio en cm, o None."""
+    alt_cands = {ep: d for ep, d in candidates.items() if "dalt_m" in d}
+    if len(alt_cands) < n + 1:
+        return None
+    errors = []
+    for ep_test, test_data in alt_cands.items():
+        others = [
+            (
+                data["dalt_m"] * 100,
+                _dist_km(test_data["lat"], test_data["lon"], data["lat"], data["lon"]),
+            )
+            for ep, data in alt_cands.items()
+            if ep != ep_test
+        ]
+        if len(others) < n:
+            continue
+        errors.append(abs(_idw_1d(others, n, p) - test_data["dalt_m"] * 100))
+    return statistics.mean(errors) if errors else None
+
+
 def _choose_best_config(candidates: dict) -> tuple[int, int, float]:
     """
     Evalúa todas las configuraciones en CONFIGS_TO_TEST mediante CV-LOO
@@ -437,11 +471,16 @@ def _choose_best_config(candidates: dict) -> tuple[int, int, float]:
     Si ninguna configuración puede evaluarse (muy pocas EP),
     devuelve la configuración fallback.
     """
-    best_n, best_p, best_err, best_err_lat, best_err_lon = (FALLBACK_N, FALLBACK_P, float("inf"), -1.0, -1.0)
+    best_n, best_p, best_err, best_err_lat, best_err_lon = (
+        FALLBACK_N, FALLBACK_P, float("inf"), -1.0, -1.0
+    )
 
     for n, p in CONFIGS_TO_TEST:
-        err, err_lat, err_lon = _cv_loo_error(candidates, n, p)
-        if err is not None and err < best_err:
+        result = _cv_loo_error(candidates, n, p)
+        if result is None:
+            continue
+        err, err_lat, err_lon = result
+        if err < best_err:
             best_n, best_p, best_err, best_err_lat, best_err_lon = n, p, err, err_lat, err_lon
 
     if best_err == float("inf"):
@@ -491,6 +530,7 @@ def transform_itrf_to_posgar07(
     obs_wk: int,
     iws: dict,
     ramsac: dict,
+    hgt: float | None = None,
     radius_km: float = RADIUS_INITIAL_KM,
     max_radius_km: float = RADIUS_MAX_KM,
 ) -> TransformResult:
@@ -502,13 +542,16 @@ def transform_itrf_to_posgar07(
         lat:          Latitud PPP en ITRFx/IGSx (grados decimales, Sur negativo)
         lon:          Longitud PPP en ITRFx/IGSx (grados decimales, Oeste negativo)
         obs_wk:       Semana GPS de las observaciones RINEX
-        iws:          Dict de soluciones semanales RAMSAC {wk: {ep: {lat, lon}}}
-        ramsac:       Dict de coordenadas POSGAR07 de EP {ep: {lat, lon}}
+        iws:          Dict de soluciones semanales RAMSAC {wk: {ep: {lat, lon, alt}}}
+        ramsac:       Dict de coordenadas POSGAR07 de EP {ep: {lat, lon[, alt]}}
+        hgt:          Altura elipsoidal PPP en ITRFx/IGSx (m), opcional
         radius_km:    Radio inicial de búsqueda de EP (km)
         max_radius_km: Radio máximo si no hay suficientes EP en el radio inicial
 
     Returns:
         TransformResult con las coordenadas transformadas y métricas de calidad.
+        El campo `alt` contiene la altura en POSGAR07 si hgt fue provisto y
+        hay EP con altura POSGAR07 en ramsac; None en caso contrario.
 
     Raises:
         RuntimeError si no hay suficientes EP para interpolar en ningún radio.
@@ -564,7 +607,7 @@ def transform_itrf_to_posgar07(
     else:
         # Pocas EP: usar fallback sin CV
         # El error CV se marca como -1 para indicar que no fue calculado
-        best_n, best_p, cv_error = FALLBACK_N, FALLBACK_P, -1.0
+        best_n, best_p, cv_err, cv_lat, cv_lon = FALLBACK_N, FALLBACK_P, -1.0, -1.0, -1.0
 
     # ------------------------------------------------------------------
     # 5. Interpolar el delta en el punto de interés
@@ -601,7 +644,27 @@ def transform_itrf_to_posgar07(
     lon_posgar = lon - dlon_cm / (ap * 3600)
 
     # ------------------------------------------------------------------
-    # 7. Construir reporte de EP usadas (las n más cercanas)
+    # 7. Transformación altimétrica (si hay datos disponibles)
+    #
+    # Se interpola delta_alt en metros con los mismos (n, p) elegidos
+    # para la horizontal. Solo se aplica si hgt fue provisto y hay EP
+    # con dalt_m (requiere que ramsac tenga alt elipsoidal POSGAR07).
+    # ------------------------------------------------------------------
+    alt_posgar = None
+    cv_error_alt_cm = None
+    if hgt is not None:
+        alt_data = [
+            (data["dalt_m"], _dist_km(lat, lon, data["lat"], data["lon"]))
+            for data in candidates.values()
+            if "dalt_m" in data
+        ]
+        if len(alt_data) >= MIN_EP_FOR_INTERPOLATION:
+            dalt_m = _idw_1d(alt_data, best_n, best_p)
+            alt_posgar = hgt - dalt_m
+            cv_error_alt_cm = _cv_loo_error_1d(candidates, best_n, best_p)
+
+    # ------------------------------------------------------------------
+    # 8. Construir reporte de EP usadas (las n más cercanas)
     # ------------------------------------------------------------------
     ep_sorted = sorted(candidates.items(), key=lambda x: x[1]["dist_km"])
     ep_nearest = {ep: data["dist_km"] for ep, data in ep_sorted[:best_n]}
@@ -612,11 +675,12 @@ def transform_itrf_to_posgar07(
         cv_error_cm=cv_err,
         cv_error_lat_cm=cv_lat,
         cv_error_lon_cm=cv_lon,
-        n_ep_used=best_n,
         n_ep_cv=len(candidates),
         n_used=best_n,
         p_used=best_p,
         wk_used=wk,
         ep_nearest=ep_nearest,
         radius_km=current_radius,
+        alt=alt_posgar,
+        cv_error_alt_cm=cv_error_alt_cm,
     )

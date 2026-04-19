@@ -36,7 +36,7 @@
     }
 
     html {
-      font-size: 15px
+      font-size: 18px
     }
 
     body {
@@ -116,7 +116,7 @@
     /* ── Layout ── */
     main {
       display: grid;
-      grid-template-columns: 370px 1fr;
+      grid-template-columns: 450px 1fr;
       height: calc(100 - 57px)
     }
 
@@ -396,26 +396,82 @@
       margin-bottom: .3rem
     }
 
-    .coords-val {
+    .coord-row {
+      display: flex;
+      align-items: baseline;
+      gap: .5rem;
+      padding: .15rem 0
+    }
+
+    .coord-label {
       font-family: var(--mono);
-      font-size: .95rem;
+      font-size: .65rem;
+      color: var(--muted);
+      width: 2.2rem;
+      flex-shrink: 0
+    }
+
+    .coord-val {
+      font-family: var(--mono);
+      font-size: 1.05rem;
       font-weight: 700;
-      color: var(--text);
-      letter-spacing: .02em
+      color: var(--accent);
+      flex: 1
     }
 
-    .coords-hgt {
+    .coord-unc {
       font-family: var(--mono);
-      font-size: .78rem;
-      color: var(--muted);
-      margin-top: .2rem
+      font-size: .7rem;
+      color: var(--warn);
+      flex-shrink: 0
     }
 
-    .coords-ref {
-      font-size: .67rem;
-      color: var(--muted);
-      margin-top: .25rem
+    /* ── Collapsible details ── */
+    .detail-block {
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      margin-bottom: .4rem
     }
+
+    .detail-block summary {
+      padding: .45rem .75rem;
+      font-family: var(--mono);
+      font-size: .62rem;
+      color: var(--muted);
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      user-select: none
+    }
+
+    .detail-block summary::-webkit-details-marker { display: none }
+
+    .detail-block summary::before {
+      content: '▶';
+      font-size: .5rem;
+      transition: transform .15s;
+      flex-shrink: 0
+    }
+
+    .detail-block[open] > summary::before { transform: rotate(90deg) }
+
+    .detail-body {
+      padding: .6rem .75rem .75rem;
+      border-top: 1px solid var(--border)
+    }
+
+    .detail-note {
+      font-size: .68rem;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-top: .5rem
+    }
+
+    .detail-note a { color: var(--accent2) }
 
     .quality-badge {
       display: inline-flex;
@@ -907,121 +963,199 @@
       }
 
       return `
-  <div style="margin-top:.6rem;padding:.5rem .7rem;background:rgba(45,51,59,.5);border-radius:3px;font-size:.7rem">
-    <div style="font-family:var(--mono);font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.3rem">
-      Incertidumbre total estimada <span style="color:var(--muted);font-weight:normal">(PPP ⊕ CV, en cuadratura)</span>
-    </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <div class="cv-breakdown">
       <div class="cv-chip">Δlat <span>±${combLat} cm</span></div>
       <div class="cv-chip">Δlon <span>±${combLon} cm</span></div>
       ${altChip}
       <div class="cv-chip">vector ${hasAlt ? '3D' : '2D'} <span>±${combVec} cm</span></div>
     </div>
-    <div style="margin-top:.35rem;color:var(--muted);font-size:.65rem;line-height:1.4">
-      El σ(95%) de NRCan es una incertidumbre <em>formal</em> del ajuste, típicamente
-      optimista. La exactitud real del PPP estático es ~1–3 cm. El error CV es empírico.
-    </div>
-  </div>`;
+    <p class="detail-note">
+      Combinación en cuadratura del σ(95%) formal del ${makeTip('PPP')} (con mínimo 1 cm)
+      y el error ${makeTip('CV')} de la interpolación. No corresponde a un percentil estricto:
+      es una estimación conservadora de la incertidumbre total (~1–1.5σ).
+    </p>`;
+    }
+
+    // ── Incertidumbre combinada por componente ────────────────────────────────────
+    function _unc(d) {
+      if (d.cv_error_cm < 0) return { lat: null, lon: null, alt: null };
+      const hasPPP = d.sigma_lat || d.sigma_lon;
+      if (hasPPP) {
+        const pLat = Math.max(d.sigma_lat * 100, 1.0);
+        const pLon = Math.max(d.sigma_lon * 100, 1.0);
+        const hasAlt = d.cv_error_alt_cm != null && d.cv_error_alt_cm >= 0 && d.sigma_hgt;
+        return {
+          lat: Math.sqrt(pLat ** 2 + (d.cv_error_lat_cm || 0) ** 2),
+          lon: Math.sqrt(pLon ** 2 + (d.cv_error_lon_cm || 0) ** 2),
+          alt: hasAlt
+            ? Math.sqrt(Math.max(d.sigma_hgt * 100, 1.0) ** 2 + d.cv_error_alt_cm ** 2)
+            : (d.cv_error_alt_cm != null && d.cv_error_alt_cm >= 0 ? d.cv_error_alt_cm : null),
+        };
+      }
+      return {
+        lat: (d.cv_error_lat_cm || 0) >= 0 ? (d.cv_error_lat_cm || 0) : null,
+        lon: (d.cv_error_lon_cm || 0) >= 0 ? (d.cv_error_lon_cm || 0) : null,
+        alt: (d.cv_error_alt_cm != null && d.cv_error_alt_cm >= 0) ? d.cv_error_alt_cm : null,
+      };
     }
 
     // ── Builder de resultado ──────────────────────────────────────────────────────
     function buildResultHTML(d, inputLabel) {
-      // Calidad vectorial
+      // Badge de calidad
       let qClass = 'good', qLabel = '';
       if (d.cv_error_cm < 0) { qClass = 'warn'; qLabel = 'Calidad no estimada (pocas EP)'; }
       else if (d.cv_error_cm < 5) { qClass = 'good'; qLabel = `Calidad buena · error CV ${d.cv_error_cm.toFixed(1)} cm`; }
       else if (d.cv_error_cm < 10) { qClass = 'warn'; qLabel = `Calidad moderada · error CV ${d.cv_error_cm.toFixed(1)} cm`; }
       else { qClass = 'poor'; qLabel = `Calidad baja · error CV ${d.cv_error_cm.toFixed(1)} cm`; }
 
-      // Desglose CV por componente
-      let cvBreakdown = '';
-      if (d.cv_error_cm >= 0) {
-        const hasAlt = d.cv_error_alt_cm != null && d.cv_error_alt_cm >= 0;
-        const cvLat = d.cv_error_lat_cm || 0, cvLon = d.cv_error_lon_cm || 0;
-        const vec = hasAlt
-          ? Math.sqrt(cvLat ** 2 + cvLon ** 2 + d.cv_error_alt_cm ** 2).toFixed(1)
-          : Math.sqrt(cvLat ** 2 + cvLon ** 2).toFixed(1);
-        cvBreakdown = `
-      <div class="cv-breakdown">
-        <div class="cv-chip">Δlat <span>±${(d.cv_error_lat_cm || 0).toFixed(1)} cm</span></div>
-        <div class="cv-chip">Δlon <span>±${(d.cv_error_lon_cm || 0).toFixed(1)} cm</span></div>
-        ${hasAlt ? `<div class="cv-chip">Δalt <span>±${d.cv_error_alt_cm.toFixed(1)} cm</span></div>` : ''}
-        <div class="cv-chip">vector ${hasAlt ? '3D' : '2D'} <span>±${vec} cm</span></div>
-      </div>`;
-      }
+      // Incertidumbre inline
+      const unc = _unc(d);
+      const uncFmt = v => v != null ? `<span class="coord-unc">±${v.toFixed(1)} cm</span>` : '';
+
+      // Altura POSGAR07 o fallback IGS20
+      const altVal = d.alt_posgar != null ? d.alt_posgar.toFixed(4) : (d.hgt_str || null);
+      const altLabel = d.alt_posgar != null
+        ? '' : ' <span style="font-size:.6rem;color:var(--muted)">(IGS20)</span>';
 
       // EP usadas
       const epRows = Object.entries(d.ep_nearest || {})
         .map(([ep, dist]) => `<li><span>${ep}</span> · ${(+dist).toFixed(1)} km</li>`).join('');
 
-      // Bloque origen PPP (solo si hay sigmas)
-      let pppBlock = '';
+      // ── <details> Incertidumbre total PPP ⊕ CV ──
+      const combinedBody = buildCombinedQuality(d);
+      const uncVec = combinedBody && unc.lat != null && unc.lon != null
+        ? (unc.alt != null
+            ? Math.sqrt(unc.lat ** 2 + unc.lon ** 2 + unc.alt ** 2).toFixed(1)
+            : Math.sqrt(unc.lat ** 2 + unc.lon ** 2).toFixed(1))
+        : null;
+      const pppCVDetail = combinedBody ? `
+<details class="detail-block">
+  <summary>Incertidumbre total (PPP ⊕ CV)${uncVec ? ` · ±${uncVec} cm` : ''}</summary>
+  <div class="detail-body">${combinedBody}</div>
+</details>` : '';
+
+      // ── <details> Calidad CV ──
+      let cvDetail = '';
+      if (d.cv_error_cm >= 0) {
+        const hasAltCV = d.cv_error_alt_cm != null && d.cv_error_alt_cm >= 0;
+        const cvLat = d.cv_error_lat_cm || 0, cvLon = d.cv_error_lon_cm || 0;
+        const cvVec = hasAltCV
+          ? Math.sqrt(cvLat ** 2 + cvLon ** 2 + d.cv_error_alt_cm ** 2).toFixed(1)
+          : Math.sqrt(cvLat ** 2 + cvLon ** 2).toFixed(1);
+        cvDetail = `
+<details class="detail-block">
+  <summary>Calidad de la transformación · vector ${hasAltCV ? '3D' : '2D'} ±${cvVec} cm</summary>
+  <div class="detail-body">
+    <div class="cv-breakdown">
+      <div class="cv-chip">Δlat <span>±${cvLat.toFixed(1)} cm</span></div>
+      <div class="cv-chip">Δlon <span>±${cvLon.toFixed(1)} cm</span></div>
+      ${hasAltCV ? `<div class="cv-chip">Δalt <span>±${d.cv_error_alt_cm.toFixed(1)} cm</span></div>` : ''}
+      <div class="cv-chip">vector ${hasAltCV ? '3D' : '2D'} <span>±${cvVec} cm</span></div>
+    </div>
+    <p class="detail-note">
+      El error CV mide cuánto se equivoca la interpolación ${makeTip('IDW')} al predecir
+      el delta de una estación que no participó (${makeTip('CV')} leave-one-out).
+      Refleja la exactitud espacial de la transformación.
+      <a href="/como-funciona" target="_blank">Ver método completo →</a>
+    </p>
+  </div>
+</details>`;
+      }
+
+      // ── <details> Origen PPP / Coordenadas entrada ──
+      let pppDetail = '';
       if (d.sigma_lat || d.sigma_lon) {
         const sigLat = (d.sigma_lat * 100).toFixed(1);
         const sigLon = (d.sigma_lon * 100).toFixed(1);
         const sigHgt = (d.sigma_hgt * 100).toFixed(1);
-        pppBlock = `
-<div class="ppp-origin">
-  <div class="ppp-label">📡 Origen ${makeTip('PPP')} — <span style="color:var(--accent2);font-family:var(--mono)">${d.ref_frame || 'ITRF'}</span></div>
-  <div class="ppp-row"><span class="ppp-key">Latitud</span>
-    <span class="ppp-val">${d.lat_ppp_dms || d.lat_input_dms}<span class="ppp-sigma">±${sigLat} cm ${makeTip('σ(95%)')}</span></span></div>
-  <div class="ppp-row"><span class="ppp-key">Longitud</span>
-    <span class="ppp-val">${d.lon_ppp_dms || d.lon_input_dms}<span class="ppp-sigma">±${sigLon} cm</span></span></div>
-  <div class="ppp-row"><span class="ppp-key">Altura elips.</span>
-    <span class="ppp-val">${d.hgt_str} m<span class="ppp-sigma">±${sigHgt} cm</span></span></div>
-  <div class="ppp-row"><span class="ppp-key">Semana ${makeTip('wk')}</span>
-    <span class="ppp-val">${d.obs_wk}</span></div>
-  ${buildCombinedQuality(d)}
-</div>`;
-      } else if (d.hgt_str) {
-        // Transformación directa: sin sigmas pero mostramos la entrada
-        pppBlock = `
-<div class="ppp-origin">
-  <div class="ppp-label">🔄 Coordenadas de entrada — <span style="color:var(--accent2);font-family:var(--mono)">${d.ref_frame || 'ITRF'}</span></div>
-  <div class="ppp-row"><span class="ppp-key">Latitud</span><span class="ppp-val">${d.lat_input_dms || d.lat_ppp_dms}</span></div>
-  <div class="ppp-row"><span class="ppp-key">Longitud</span><span class="ppp-val">${d.lon_input_dms || d.lon_ppp_dms}</span></div>
-  <div class="ppp-row"><span class="ppp-key">Altura elips.</span><span class="ppp-val">${d.hgt_str} m</span></div>
-  <div class="ppp-row"><span class="ppp-key">Semana ${makeTip('wk')}</span><span class="ppp-val">${d.obs_wk}</span></div>
-  ${buildCombinedQuality(d)}
-</div>`;
+        pppDetail = `
+<details class="detail-block">
+  <summary>Origen ${makeTip('PPP')} · ${d.ref_frame || 'ITRF'}</summary>
+  <div class="detail-body">
+    <div class="ppp-origin" style="border:none;padding:0;margin:0;background:none">
+      <div class="ppp-row"><span class="ppp-key">Latitud</span>
+        <span class="ppp-val">${d.lat_ppp_dms || d.lat_input_dms}<span class="ppp-sigma">±${sigLat} cm ${makeTip('σ(95%)')}</span></span></div>
+      <div class="ppp-row"><span class="ppp-key">Longitud</span>
+        <span class="ppp-val">${d.lon_ppp_dms || d.lon_input_dms}<span class="ppp-sigma">±${sigLon} cm</span></span></div>
+      <div class="ppp-row"><span class="ppp-key">Altura elips.</span>
+        <span class="ppp-val">${d.hgt_str} m<span class="ppp-sigma">±${sigHgt} cm</span></span></div>
+      <div class="ppp-row"><span class="ppp-key">Semana ${makeTip('wk')}</span>
+        <span class="ppp-val">${d.obs_wk}</span></div>
+    </div>
+  </div>
+</details>`;
+      } else {
+        pppDetail = `
+<details class="detail-block">
+  <summary>Coordenadas de entrada · ${d.ref_frame || 'ITRF'}</summary>
+  <div class="detail-body">
+    <div class="ppp-origin" style="border:none;padding:0;margin:0;background:none">
+      <div class="ppp-row"><span class="ppp-key">Latitud</span>
+        <span class="ppp-val">${d.lat_input_dms || d.lat_ppp_dms}</span></div>
+      <div class="ppp-row"><span class="ppp-key">Longitud</span>
+        <span class="ppp-val">${d.lon_input_dms || d.lon_ppp_dms}</span></div>
+      ${d.hgt_str ? `<div class="ppp-row"><span class="ppp-key">Altura elips.</span>
+        <span class="ppp-val">${d.hgt_str} m</span></div>` : ''}
+      <div class="ppp-row"><span class="ppp-key">Semana ${makeTip('wk')}</span>
+        <span class="ppp-val">${d.obs_wk}</span></div>
+    </div>
+  </div>
+</details>`;
       }
+
+      // ── <details> Transformación IDW ──
+      const idwDetail = `
+<details class="detail-block">
+  <summary>Transformación ${makeTip('IDW')} · ${makeTip('wk')} ${d.wk_used} · ${d.n_ep_cv} EP</summary>
+  <div class="detail-body">
+    <div class="report-row">
+      <span class="report-key">${makeTip('EP')} en ${makeTip('CV')}</span>
+      <span class="report-val">${d.n_ep_cv} estaciones</span>
+    </div>
+    <div class="report-row">
+      <span class="report-key">Config. óptima (${makeTip('n')}, ${makeTip('p')})</span>
+      <span class="report-val">n=${d.n_used}, p=${d.p_used}</span>
+    </div>
+    <div class="report-row">
+      <span class="report-key">Semana ${makeTip('wk')} usada</span>
+      <span class="report-val">${d.wk_used}</span>
+    </div>
+    <div class="report-row">
+      <span class="report-key">Radio de búsqueda</span>
+      <span class="report-val">${d.radius_km} km</span>
+    </div>
+    <div class="report-row" style="align-items:flex-start">
+      <span class="report-key">${makeTip('EP')} usadas (n=${d.n_used})</span>
+      <ul class="ep-list">${epRows}</ul>
+    </div>
+  </div>
+</details>`;
 
       return `
 <div class="result-coords">
   <div class="site-name">📍 ${(d.marker || 'PUNTO').toUpperCase()} — ${makeTip('POSGAR07')}</div>
-  <div class="coords-val">${d.lat_posgar_dms}</div>
-  <div class="coords-val">${d.lon_posgar_dms}</div>
-  ${d.alt_posgar != null ? `<div class="coords-hgt">Alt. elips.: ${d.alt_posgar.toFixed(4)} m</div>` : d.hgt_str ? `<div class="coords-hgt">Alt. elips.: ${d.hgt_str} m <span style="font-size:.65rem;color:var(--muted)">(IGS20, sin transformar)</span></div>` : ''}
-  <div class="coords-ref">ITRF2005 · época 2006.632</div>
+  <div class="coord-row">
+    <span class="coord-label">lat</span>
+    <span class="coord-val">${d.lat_posgar_dms}</span>
+    ${uncFmt(unc.lat)}
+  </div>
+  <div class="coord-row">
+    <span class="coord-label">lon</span>
+    <span class="coord-val">${d.lon_posgar_dms}</span>
+    ${uncFmt(unc.lon)}
+  </div>
+  ${altVal ? `<div class="coord-row">
+    <span class="coord-label">alt</span>
+    <span class="coord-val">${altVal} m${altLabel}</span>
+    ${uncFmt(unc.alt)}
+  </div>` : ''}
   <div class="quality-badge ${qClass}">⬤ ${qLabel}</div>
-  ${cvBreakdown}
 </div>
 
-${pppBlock}
-
-<div class="report-section">
-  <h5>Transformación ${makeTip('IDW')} · ${makeTip('CV')}</h5>
-  <div class="report-row">
-    <span class="report-key">${makeTip('EP')} en ${makeTip('CV')}</span>
-    <span class="report-val">${d.n_ep_cv} estaciones</span>
-  </div>
-  <div class="report-row">
-    <span class="report-key">Config. óptima (${makeTip('n')}, ${makeTip('p')})</span>
-    <span class="report-val">n=${d.n_used}, p=${d.p_used}</span>
-  </div>
-  <div class="report-row">
-    <span class="report-key">Semana ${makeTip('wk')} usada</span>
-    <span class="report-val">${d.wk_used}</span>
-  </div>
-  <div class="report-row">
-    <span class="report-key">Radio de búsqueda</span>
-    <span class="report-val">${d.radius_km} km</span>
-  </div>
-  <div class="report-row" style="align-items:flex-start">
-    <span class="report-key">${makeTip('EP')} usadas (n=${d.n_used})</span>
-    <ul class="ep-list">${epRows}</ul>
-  </div>
-</div>
+${pppCVDetail}
+${cvDetail}
+${pppDetail}
+${idwDetail}
 `;
     }
 

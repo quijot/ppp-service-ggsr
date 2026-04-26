@@ -101,11 +101,12 @@ def _save_pickle(filename: str, data) -> None:
 # Tarea: update_geodata
 # ---------------------------------------------------------------------------
 @celery_app.task(bind=True, name="ppp_tasks.update_geodata")
-def update_geodata(self, full: bool = False):
+def update_geodata(self, full: bool = False, ramsac_only: bool = False):
     """Descarga RAMSAC + iws de IGN-Ar, actualiza Redis y los pickles locales.
 
-    full=True  → bootstrap completo desde semana 1388.
-    full=False → solo semanas nuevas desde geodata:last_week (incremental).
+    ramsac_only=True → solo refresca RAMSAC (HTTP, sin FTP). Rápido (~30 s).
+    full=True        → bootstrap completo iws desde semana 1388 (FTP).
+    full=False       → solo semanas nuevas desde geodata:last_week (incremental).
     """
     from app.geodata_updater import fetch_ramsac, fetch_iws_incremental
     from gnsstime import gnsstime as gt
@@ -117,6 +118,11 @@ def update_geodata(self, full: bool = False):
         ramsac = fetch_ramsac()
         _geodata_to_redis("ramsac", ramsac)
         _save_pickle("ramsac.pickle", ramsac)
+        n_alt = sum(1 for v in ramsac.values() if "alt" in v)
+        logger.info("ramsac updated: %d EPs, %d with alt", len(ramsac), n_alt)
+
+        if ramsac_only:
+            return {"status": "ok", "ramsac_eps": len(ramsac), "ramsac_with_alt": n_alt}
 
         # --- iws ---
         last_raw = _redis.get("geodata:last_week")
@@ -153,11 +159,15 @@ def update_geodata(self, full: bool = False):
 @worker_ready.connect
 def on_worker_ready(sender, **kwargs):
     try:
-        if not _redis.exists("geodata:ramsac"):
-            logger.info("geodata:ramsac not found in Redis — launching bootstrap")
+        if not _redis.exists("geodata:iws"):
+            # First run or cache cleared: full bootstrap (ramsac + iws).
+            logger.info("geodata:iws not found in Redis — launching full bootstrap")
             update_geodata.apply_async(kwargs={"full": True})
         else:
-            logger.info("geodata:ramsac found in Redis — skipping bootstrap")
+            # iws already in Redis: only refresh ramsac (HTTP, ~30 s) so that
+            # alt coords are always current regardless of previous Redis state.
+            logger.info("geodata:iws found in Redis — refreshing ramsac")
+            update_geodata.apply_async(kwargs={"ramsac_only": True})
     except Exception as exc:
         logger.error("worker_ready bootstrap failed: %s", exc, exc_info=True)
 
@@ -196,9 +206,7 @@ def _run_transform(
     lon_ppp_dms = dd2dms(lon)
 
     # --- GeoJSON para Leaflet ---
-    _alt_line = (
-        f"<br><b>alt:</b> {res.alt:.4f} m" if res.alt is not None else ""
-    )
+    _alt_line = f"<br><b>alt:</b> {res.alt:.4f} m" if res.alt is not None else ""
     point_desc = (
         f"<b>Coordenadas POSGAR07</b>"
         f"<br><b>lat:</b> {lat_posgar_dms}"

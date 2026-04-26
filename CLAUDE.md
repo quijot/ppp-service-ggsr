@@ -15,6 +15,7 @@ Servicio web del **Grupo de Geodesia Satelital de Rosario (GGSR)** que:
 - **Deploy**: Railway (web + worker como servicios separados)
 - **Frontend**: HTML/JS puro + Leaflet.js
 - **Python**: 3.11, gestionado con `requirements.txt` + Docker tanto en desarrollo como en producción
+- **Linting/formato**: `ruff` (reemplaza flake8/black/isort) — config en `ruff.toml`, instalar con `requirements-dev.txt`
 - **OS del desarrollador**: Arch Linux
 
 ## Estructura del proyecto
@@ -175,6 +176,10 @@ docker compose exec redis redis-cli FLUSHDB
 
 # Ver logs:
 docker compose logs -f worker
+
+# Linting y formato (ruff, dentro del contenedor):
+docker compose exec web ruff check app/ ppp/transform.py ppp/geodata.py
+docker compose exec web ruff format app/ ppp/transform.py ppp/geodata.py
 ```
 
 > Los archivos RINEX se transfieren vía Redis (clave `rinex:{job_id}`, TTL 1h).

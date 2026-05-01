@@ -28,16 +28,17 @@ ppp-service-ggsr/
 │   ├── tasks.py             # Celery worker: pipeline RINEX→NRCan→parseo→POSGAR07
 │   ├── parser.py            # Parser del .sum de NRCan v5.x (formato columnar)
 │   ├── config.py            # Settings via pydantic-settings (.env)
+│   ├── geodata_updater.py   # Descarga ramsac (HTTP IGN-Ar) e iws (FTP) y popula Redis/disco
 │   └── templates/
 │       ├── index.html           # Frontend: dos pestañas (PPP completo / transformación directa)
 │       └── como_funciona.html   # Documentación técnica pública
 ├── ppp/
-│   ├── transform.py         # ⭐ Módulo central: transformación IGS20→POSGAR07 con CV-LOO IDW
-│   ├── geodata.py           # Carga pickles con rutas absolutas (ramsac, iws, sws)
+│   ├── transform.py         # ⭐ Módulo central: transformación IGS20→POSGAR07 con CV-LOO IDW (2D + 1D)
+│   ├── geodata.py           # Carga ramsac/iws desde Redis (preferente) o pickles
 │   ├── calc.py              # Script original — referencia, no usado en el pipeline activo
 │   ├── itrf2posgar.py       # Módulo original — referencia, no usado en el pipeline activo
-│   ├── ramsac.pickle        # ⚠ NO en git — coordenadas POSGAR07 de 127 EP de RAMSAC
-│   ├── iws.pickle           # ⚠ NO en git — soluciones semanales IGS20 de las EP (1007 semanas)
+│   ├── ramsac.pickle        # ⚠ NO en git — coordenadas POSGAR07 (lat, lon, alt) de ~176 EP
+│   ├── iws.pickle           # ⚠ NO en git — soluciones semanales IGS14 de las EP desde semana GPS 1388
 │   └── sws.pickle           # ⚠ NO en git — soluciones semanales alternativas
 ├── .env.example
 ├── .gitignore
@@ -113,22 +114,34 @@ Algoritmo:
 
 Retorna `TransformResult` con:
 - `lat`, `lon` (POSGAR07)
-- `cv_error_cm` (vector), `cv_error_lat_cm`, `cv_error_lon_cm` (por componente)
+- `cv_error_cm` (vector 2D), `cv_error_lat_cm`, `cv_error_lon_cm` (por componente)
+- `alt` (altura elipsoidal POSGAR07, `None` si la EP no tiene `alt` en ramsac)
+- `cv_error_alt_cm` (CV-LOO 1D altimétrico, `None` si no aplica)
 - `n_used`, `p_used`, `n_ep_cv`, `wk_used`, `radius_km`, `ep_nearest`
+
+La interpolación altimétrica usa los mismos `(n, p)` elegidos por el CV-LOO horizontal,
+y aplica `alt_posgar = hgt - dalt_idw` (donde `dalt = iws.alt - ramsac.alt`).
 
 **`dd2dms()`** vive en `transform.py` (migrada desde `itrf2posgar.py`).
 
 ### Datos (pickles)
 
-- `ramsac`: dict `{ep: {lat, lon}}` — coordenadas POSGAR07 de 127 EP
-  - **No tiene `alt`** — por eso la transformación altimétrica no está implementada
+- `ramsac`: dict `{ep: {lat, lon, alt}}` — coordenadas POSGAR07 de ~176 EP
+  - `alt` (altura elipsoidal POSGAR07) viene del endpoint de formularios IGN-Ar
+    (`dnsg.ign.gob.ar/apps/api/v1/ramsac/formularios`); ~175/176 EPs lo tienen
+  - Las pocas EP sin `alt` se completan desde GeoJSON/KML (solo lat/lon) y para
+    ellas la transformación altimétrica devuelve `None`
 - `iws`: dict `{wk: {ep: {lat, lon, alt}}}` — soluciones semanales IGS20
-  - 1007 semanas (GPS week 1388–2398 aprox.)
+  - GPS week 1388 en adelante (descargadas vía FTP en bootstrap)
   - No todas las EP en todas las semanas (la red fue creciendo)
   - Algunas EP tienen períodos de inactividad
 - `sws`: similar a `iws`, soluciones alternativas
-- Los pickles se generan en otro servidor por procesamiento relativo y ajuste de red
-- Se actualizan periódicamente (cada semana nueva de la red RAMSAC)
+- `app/geodata_updater.py` actualiza ambos: ramsac vía HTTP (~30 s) e iws vía FTP
+- Bootstrap automático en `worker_ready`: si `geodata:iws` no está en Redis, full;
+  si ya está, sólo refresca ramsac (`ramsac_only=True`) — para que las altimétricas
+  estén siempre vigentes incluso si Redis tenía un ramsac viejo sin `alt`
+- El endpoint `/api/transform` recarga `geodata` en cada llamada (`importlib.reload`)
+  para evitar cachés stale del módulo en el proceso web
 
 ### Frontend (index.html)
 
@@ -146,8 +159,10 @@ Retorna `TransformResult` con:
 
 Dos indicadores independientes (no se propagan uno en el otro):
 - **σ(95%) NRCan**: incertidumbre formal del PPP, optimista por naturaleza (~0.5 cm formal ≠ ~1-3 cm real)
-- **Error CV**: empírico y realista, mide exactitud espacial de la interpolación IDW
-- **Combinación**: σ_total = √(σ_PPP_real² + σ_CV²), mostrado por componente y vectorial
+- **Error CV**: empírico y realista, mide exactitud espacial de la interpolación IDW.
+  Se calcula por componente (lat, lon, alt) y como vector 3D `√(Δlat² + Δlon² + Δalt²)`
+- **Combinación**: σ_total = √(σ_PPP_real² + σ_CV²), mostrado por componente y vectorial.
+  No es un percentil estricto: estimación conservadora (~1–1.5σ)
 
 ### Pestaña "Solo Transformación"
 
@@ -215,14 +230,19 @@ O configurar un volumen persistente montado en `/app/ppp` (recomendado para actu
 
 ## Trabajo pendiente / ideas futuras
 
-- **Transformación altimétrica**: requiere obtener alturas elipsoidales POSGAR07
-  de las EP desde IGN (scraping de ign.gob.ar o solicitud formal)
 - **Persistencia con PostgreSQL**: tabla de resultados, historial de jobs
   (código preparado, descomentar en requirements.txt + agregar models.py)
-- **Actualización automática de pickles**: script/cron que regenere iws.pickle
-  semanalmente desde el servidor de procesamiento de la red RAMSAC
 - **Comparación de métodos**: mostrar simultáneamente IDW CV-LOO vs calcv10 vs calcv15
   para validación y benchmarking
+- **Cobertura altimétrica completa**: completar `alt` en las EP que hoy se cargan
+  sólo desde GeoJSON/KML (no aparecen en formularios IGN-Ar)
+
+### Cuestiones a analizar
+
+- **calidad buena??** Hay una especie de contradicción visual la estimación de errores reportada es relativamente grande, por ejemplo +10 cm, y se reporta "Calidad buena". La razón de errores grandes puede ser mala calidad del RINEX (poca duración) u otra razón, pero no queda claro que "calidad buena" se refiere al IDW.
+- Cuando la calidad no sea buena, se podrían advertir consejos para mejorarla, ejemplo medir más tiempo, cuál más? Tener en cuenta para la documentación
+- A veces hay una incoherencia cuando procesa un RINEX muy actual, los resultados están en IGSR3 y el fallback de la altura reporta IGS20. Es un error mínimo, una imprecisión.
+- Poner siempre calidad por componente y luego calidad horizontal 2D y 3D
 
 ## Archivos que NO deben modificarse sin entender su contexto
 

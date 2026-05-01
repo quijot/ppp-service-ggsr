@@ -19,16 +19,17 @@ ppp-service-ggsr/
 │   ├── tasks.py          # Celery: worker asincrónico (pipeline completo)
 │   ├── parser.py         # Parser del .sum de NRCan v5.x
 │   ├── config.py         # Settings via variables de entorno (pydantic-settings)
+│   ├── geodata_updater.py # Descarga RAMSAC (HTTP IGN-Ar) e iws (FTP) → Redis/disco
 │   └── templates/
 │       ├── index.html        # Frontend principal (dos pestañas: PPP y transformación directa)
 │       └── como_funciona.html  # Documentación técnica del proceso
 ├── ppp/
-│   ├── transform.py      # Módulo principal: transformación IGS20→POSGAR07 con CV-LOO
-│   ├── geodata.py        # Carga ramsac.pickle, iws.pickle, sws.pickle
+│   ├── transform.py      # Módulo principal: transformación IGS20→POSGAR07 con CV-LOO (2D + 1D)
+│   ├── geodata.py        # Carga ramsac/iws desde Redis (preferente) o pickles locales
 │   ├── calc.py           # Script original de referencia
 │   ├── itrf2posgar.py    # Módulo original de referencia
-│   ├── ramsac.pickle     # ⚠ NO en git — coordenadas POSGAR07 de la red RAMSAC
-│   ├── iws.pickle        # ⚠ NO en git — soluciones semanales IGS20 de las EP
+│   ├── ramsac.pickle     # ⚠ NO en git — coordenadas POSGAR07 (lat, lon, alt) de ~176 EP
+│   ├── iws.pickle        # ⚠ NO en git — soluciones semanales IGS de las EP
 │   └── sws.pickle        # ⚠ NO en git — soluciones semanales alternativas
 ├── .env.example          # Plantilla de variables de entorno
 ├── .gitignore
@@ -85,6 +86,11 @@ docker compose logs -f worker
 
 # Entrar al contenedor del worker:
 docker compose exec worker bash
+
+# Linting / formato (ruff, dentro del contenedor):
+docker compose exec web pip install -q -r requirements-dev.txt
+docker compose exec web ruff check app/ ppp/transform.py ppp/geodata.py
+docker compose exec web ruff format app/ ppp/transform.py ppp/geodata.py
 ```
 
 ---
@@ -144,9 +150,15 @@ Sin el volumen el sistema igual funciona, pero el bootstrap se relanza completo 
 
 **6. Primer deploy**
 
-Al arrancar por primera vez (o si Redis está vacío), el worker lanza automáticamente
-`update_geodata(full=True)` via la señal `worker_ready`. Descarga RAMSAC + soluciones
-IGN-Ar desde la semana 1388 (~2 hs). Durante ese tiempo los jobs PPP fallan con un mensaje claro. Las actualizaciones incrementales posteriores corren cada martes 3:00 UTC via Celery Beat.
+En cada arranque del worker, la señal `worker_ready` decide qué hacer:
+- Si `geodata:iws` no está en Redis → `update_geodata(full=True)`: descarga RAMSAC
+  (HTTP IGN-Ar, ~30 s) + soluciones semanales desde GPS week 1388 (FTP, ~2 hs).
+  Durante ese tiempo los jobs PPP fallan con un mensaje claro.
+- Si `geodata:iws` ya está en Redis → `update_geodata(ramsac_only=True)`: solo refresca
+  RAMSAC (HTTP, ~30 s). Garantiza que las alturas elipsoidales (`alt`) estén siempre
+  vigentes, incluso si Redis tenía un RAMSAC viejo cacheado sin altimetría.
+
+Las actualizaciones incrementales semanales corren cada martes 3:00 UTC via Celery Beat.
 
 **Verificar estado desde Railway shell** (`railway shell --service worker`):
 ```bash
@@ -186,7 +198,7 @@ python -c "from app.tasks import update_geodata; update_geodata.apply(kwargs={'f
 - **Tiempo de procesamiento**: NRCan puede tardar entre 2 y 30 minutos según carga del servidor y duración del RINEX. El frontend hace polling cada 5 segundos.
 - **Límite de archivo**: 20 MB (igual que NRCan).
 - **Marco de referencia**: NRCan v5 usa IGS20 para datos recientes y posiblemente IGS14 para históricos pre-2022. El servicio lee el marco del `.sum` y lo muestra explícitamente.
-- **Altura elipsoidal**: se reporta en el marco de NRCan (IGS20) sin transformar, ya que aún no se pueden obtener sistemáticamente desde `ramsac` las alturas POSGAR07 de referencia para calcular el delta altimétrico.
+- **Altura elipsoidal**: se transforma a POSGAR07 cuando la EP de referencia tiene altura disponible. Las alturas elipsoidales POSGAR07 de las EP se obtienen del endpoint de formularios de IGN-Ar (~175/176 EPs cubiertas). El error CV altimétrico se calcula 1D por leave-one-out independiente. Para las pocas EP sin `alt`, la altura se reporta en IGS20 sin transformar.
 - **Transferencia web→worker**: el archivo RINEX se almacena temporalmente en Redis (TTL 1 hora) y se recupera por el worker al inicio de la tarea. No se requieren volúmenes compartidos entre servicios.
 - **Archivos temporales**: se limpian automáticamente al finalizar cada job.
 

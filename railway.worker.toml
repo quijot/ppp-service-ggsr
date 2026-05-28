@@ -10,5 +10,7 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2 --beat"
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+# always + 10 retries: el worker debe estar siempre arriba; los fallos transitorios
+# (FTP IGN-Ar lento, red, OOM puntual) no deben dejarlo muerto sin reintentar.
+restartPolicyType = "always"
+restartPolicyMaxRetries = 10

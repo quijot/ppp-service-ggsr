@@ -173,17 +173,16 @@ async def transform_direct(
     Útil para quien ya tiene coordenadas PPP de otro origen.
     """
     import sys
-    import importlib
 
-    sys.path.insert(0, cfg.ppp_dir)
+    if cfg.ppp_dir not in sys.path:
+        sys.path.insert(0, cfg.ppp_dir)
 
     try:
         from gnsstime import gnsstime as gt
-        import geodata as _geodata_mod
-        importlib.reload(_geodata_mod)  # always read fresh ramsac/iws from Redis
-        iws, ramsac = _geodata_mod.iws, _geodata_mod.ramsac
+        from geodata import get_geodata
         from transform import transform_itrf_to_posgar07, dd2dms
 
+        iws, ramsac = get_geodata()  # recarga solo si cambió la fuente
         obs_dt = gt.strptime(date, "%Y-%m-%d")
         obs_wk = obs_dt.gpsw
 

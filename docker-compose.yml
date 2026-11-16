@@ -42,7 +42,7 @@ services:
 
   worker:
     build: .
-    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2
+    command: celery -A app.tasks.celery_app worker --loglevel=info --pool=threads --concurrency=6
     volumes:
       - ./app:/app/app
       - ./ppp:/app/ppp

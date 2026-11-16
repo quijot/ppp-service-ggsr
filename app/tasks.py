@@ -19,6 +19,7 @@ import pickle
 import shutil
 import sys
 import tempfile
+import threading
 import time
 import zipfile
 import zlib
@@ -51,7 +52,6 @@ celery_app.conf.update(
     result_serializer="json",
     accept_content=["json"],
     result_expires=3600,
-    worker_max_tasks_per_child=10,
     broker_connection_retry_on_startup=True,
     timezone="UTC",
     beat_schedule={
@@ -74,9 +74,13 @@ CSRS_RESULT_URL = f"{CSRS_DOMAIN}/CSRS-PPP/service/results/file?id={{keyid}}"
 # ---------------------------------------------------------------------------
 # Helpers para sys.path (módulos ppp/)
 # ---------------------------------------------------------------------------
+_ppp_path_lock = threading.Lock()
+
+
 def _ensure_ppp_in_path():
-    if cfg.ppp_dir not in sys.path:
-        sys.path.insert(0, cfg.ppp_dir)
+    with _ppp_path_lock:
+        if cfg.ppp_dir not in sys.path:
+            sys.path.insert(0, cfg.ppp_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +88,8 @@ def _ensure_ppp_in_path():
 # ---------------------------------------------------------------------------
 def _geodata_to_redis(key: str, data) -> None:
     _redis.set(f"geodata:{key}", zlib.compress(pickle.dumps(data)))
+    # Sello de versión: geodata.get_geodata() lo compara para saber si recargar.
+    _redis.set("geodata:version", str(time.time_ns()))
 
 
 def _geodata_from_redis(key: str):
@@ -190,9 +196,11 @@ def _run_transform(
     _ensure_ppp_in_path()
 
     from gnsstime import gnsstime as gt
-    from geodata import iws, ramsac
+    from geodata import get_geodata
     from transform import transform_itrf_to_posgar07, dd2dms
     from geojson import Feature, FeatureCollection, LineString, Point
+
+    iws, ramsac = get_geodata()
 
     obs_dt = gt.strptime(obs_date, "%Y-%m-%d")
     obs_wk = obs_dt.gpsw

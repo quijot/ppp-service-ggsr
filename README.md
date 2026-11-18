@@ -93,6 +93,29 @@ docker compose exec web ruff check app/ ppp/transform.py ppp/geodata.py
 docker compose exec web ruff format app/ ppp/transform.py ppp/geodata.py
 ```
 
+### 5. Dependencias
+
+`requirements.txt` lista sólo las dependencias directas. `constraints.txt` fija
+la versión exacta de **todos** los paquetes (incluidas las transitivas), tomada
+de un `pip freeze` de una imagen que funciona en producción. El Dockerfile
+instala con:
+
+```bash
+pip install -r requirements.txt -c constraints.txt
+```
+
+Para actualizar una dependencia a propósito:
+
+1. Cambiar su pin en `requirements.txt` (y, si hace falta, quitar o editar su
+   línea en `constraints.txt` y la de las transitivas que deban moverse).
+2. Reconstruir: `docker compose build --no-cache web` y probar.
+3. Regenerar `constraints.txt` desde la nueva imagen:
+   ```bash
+   docker compose run --rm --no-deps web pip freeze \
+     | grep -viE '^(pip|setuptools|wheel|ruff)==' > constraints.txt
+   ```
+4. Revisar el diff de `constraints.txt` y commitear ambos archivos juntos.
+
 ---
 
 ## Deploy en Railway

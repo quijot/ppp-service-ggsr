@@ -34,12 +34,9 @@ ppp-service-ggsr/
 │       └── como_funciona.html   # Documentación técnica pública
 ├── ppp/
 │   ├── transform.py         # ⭐ Módulo central: transformación IGS20→POSGAR07 con CV-LOO IDW (2D + 1D)
-│   ├── geodata.py           # Carga ramsac/iws desde Redis (preferente) o pickles
-│   ├── calc.py              # Script original — referencia, no usado en el pipeline activo
-│   ├── itrf2posgar.py       # Módulo original — referencia, no usado en el pipeline activo
-│   ├── ramsac.pickle        # ⚠ NO en git — coordenadas POSGAR07 (lat, lon, alt) de ~176 EP
-│   ├── iws.pickle           # ⚠ NO en git — soluciones semanales IGS14 de las EP desde semana GPS 1388
-│   └── sws.pickle           # ⚠ NO en git — soluciones semanales alternativas
+│   └── geodata.py           # get_geodata(): carga ramsac/iws desde Redis (preferente) o pickles, con caché
+├── docs/
+│   └── geodata.md           # Documentación de las fuentes y actualización de geodata
 ├── .env.example
 ├── .gitignore
 ├── CLAUDE.md                # este archivo
@@ -47,9 +44,16 @@ ppp-service-ggsr/
 ├── Procfile
 ├── README.md
 ├── docker-compose.yml       # desarrollo local: redis + web + worker + flower
-├── railway.toml             # configuración de build/deploy Railway (servicio web)
-└── requirements.txt
+├── railway.web.toml         # build/deploy Railway — servicio web (uvicorn)
+├── railway.worker.toml      # build/deploy Railway — servicio worker (celery + beat)
+├── requirements.txt
+├── requirements-dev.txt     # herramientas de desarrollo (ruff)
+└── ruff.toml                # configuración de ruff
 ```
+
+Sólo en runtime (NO en git, `*.pickle` en `.gitignore`): `ramsac.pickle`, `iws.pickle`
+y `sws.pickle` pueden existir en `PPP_DATA_DIR` (por defecto `ppp/`) como fallback local
+cuando Redis está vacío. `sws.pickle` no lo lee el código activo.
 
 ## Pipeline completo
 
@@ -126,9 +130,10 @@ y aplica `alt_posgar = hgt - dalt_idw` (donde `dalt = iws.alt - ramsac.alt`).
 
 ### Datos (pickles)
 
-- `ramsac`: dict `{ep: {lat, lon, alt}}` — coordenadas POSGAR07 de ~176 EP
+- `ramsac`: dict `{ep: {lat, lon, alt}}` — coordenadas POSGAR07 de todas las EP RAMSAC
+  publicadas por IGN-Ar (el número crece con la red; ver los logs de `update_geodata`)
   - `alt` (altura elipsoidal POSGAR07) viene del endpoint de formularios IGN-Ar
-    (`dnsg.ign.gob.ar/apps/api/v1/ramsac/formularios`); ~175/176 EPs lo tienen
+    (`dnsg.ign.gob.ar/apps/api/v1/ramsac/formularios`); casi todas las EP lo tienen
   - Las pocas EP sin `alt` se completan desde GeoJSON/KML (solo lat/lon) y para
     ellas la transformación altimétrica devuelve `None`
 - `iws`: dict `{wk: {ep: {lat, lon, alt}}}` — soluciones semanales IGS20
@@ -140,8 +145,10 @@ y aplica `alt_posgar = hgt - dalt_idw` (donde `dalt = iws.alt - ramsac.alt`).
 - Bootstrap automático en `worker_ready`: si `geodata:iws` no está en Redis, full;
   si ya está, sólo refresca ramsac (`ramsac_only=True`) — para que las altimétricas
   estén siempre vigentes incluso si Redis tenía un ramsac viejo sin `alt`
-- El endpoint `/api/transform` recarga `geodata` en cada llamada (`importlib.reload`)
-  para evitar cachés stale del módulo en el proceso web
+- Worker (`_run_transform` en `tasks.py`) y web (`/api/transform`) leen los datos con
+  `get_geodata()` de `ppp/geodata.py`: cachea `iws`/`ramsac` en memoria y sólo recarga
+  cuando cambia el sello `geodata:version` en Redis (lo escribe `_geodata_to_redis`) o
+  el mtime de los pickles. La verificación y recarga van bajo un lock (thread-safe)
 
 ### Frontend (index.html)
 
@@ -209,8 +216,9 @@ URLs locales:
 Se necesitan 3 servicios: **Redis** (catálogo Railway) + **web** + **worker**.
 
 - `web`: Start Command = `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- `worker`: Start Command = `celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2`
+- `worker`: Start Command = `celery -A app.tasks.celery_app worker --loglevel=info --pool=threads --concurrency=6 --beat`
 - Ambos linkeados al mismo Redis
+- La configuración de cada servicio está en `railway.web.toml` y `railway.worker.toml`
 
 Variables de entorno requeridas:
 ```
@@ -220,13 +228,8 @@ CSRS_GET_MAX       → 60 (10 minutos máximo de espera)
 PPP_DIR            → /app/ppp
 ```
 
-Los pickles NO están en git. Subir a Railway via CLI:
-```bash
-railway run --service web cp ramsac.pickle /app/ppp/ramsac.pickle
-railway run --service web cp iws.pickle    /app/ppp/iws.pickle
-railway run --service web cp sws.pickle    /app/ppp/sws.pickle
-```
-O configurar un volumen persistente montado en `/app/ppp` (recomendado para actualizaciones frecuentes).
+No hace falta subir pickles: la geodata vive en Redis y la carga `update_geodata`
+(en `worker_ready` y con el schedule semanal de beat, martes 3:00 UTC).
 
 ## Trabajo pendiente / ideas futuras
 
@@ -246,6 +249,24 @@ O configurar un volumen persistente montado en `/app/ppp` (recomendado para actu
 
 ## Archivos que NO deben modificarse sin entender su contexto
 
-- `ppp/itrf2posgar.py` y `ppp/calc.py`: scripts originales mantenidos como referencia.
-  El pipeline activo usa `transform.py` en su lugar.
-- `ppp/geodata.py`: usar rutas absolutas con `os.path.abspath(__file__)` — no rutas relativas.
+- `ppp/geodata.py`: el directorio de datos se resuelve con `pathlib.Path` desde
+  `PPP_DATA_DIR` o, si no está definida, `Path(__file__).parent` — nunca rutas relativas
+  al cwd. `get_geodata()` es el único punto de acceso a la geodata: no exponer ni mutar
+  los dicts cacheados por otra vía, y mantener el lock y la comparación de versión.
+
+## Reglas para el worker (pool de threads)
+
+El worker corre con `--pool=threads`: todas las tareas comparten proceso y memoria.
+
+- Nunca mutar estado compartido a nivel de módulo en el camino de una tarea; la geodata
+  se lee sólo a través de `get_geodata()`.
+- Toda llamada de red lleva `timeout` explícito y todo loop de polling tiene un máximo.
+  El pool de threads no puede matar una tarea colgada.
+- Los archivos de cada job van en rutas únicas (`tempfile` o `results_dir/<job_id>`).
+
+## Flujo de trabajo
+
+- Nunca hacer push a `main`: Railway despliega `main` automáticamente. Trabajar en una
+  rama y abrir un PR con `gh`.
+- Correr `ruff check` antes de commitear.
+- La descripción de cada PR distingue lo que se verificó de lo que se asumió.

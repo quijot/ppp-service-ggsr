@@ -20,6 +20,7 @@ web con uvicorn).
   iws    : {gps_week: {ep: {lat, lon, alt}}}   — soluciones semanales IGN-Ar
 """
 
+import logging
 import os
 import pickle
 import threading
@@ -38,6 +39,11 @@ if _redis_url:
         _redis = None
 
 _PICKLES = {"ramsac": "ramsac.pickle", "iws": "iws.pickle"}
+
+logger = logging.getLogger(__name__)
+
+# Centinela: la lectura de geodata:version falló (≠ None, que es "clave ausente").
+_STAMP_UNKNOWN = object()
 
 _lock = threading.Lock()
 _loaded_version = None
@@ -77,13 +83,16 @@ def _source_version():
     """Huella de las fuentes: sello en Redis + mtime de los pickles.
 
     Es barata (un GET chico y dos stat) comparada con recargar ~MB de pickles.
+    Si la lectura del sello falla (Redis caído), el sello es _STAMP_UNKNOWN:
+    significa "no se sabe", no "cambió". Un sello ausente (None) sí es un valor
+    legítimo (Redis sano pero sin datos todavía).
     """
     stamp = None
     if _redis is not None:
         try:
             stamp = _redis.get("geodata:version")
         except Exception:
-            stamp = None
+            stamp = _STAMP_UNKNOWN
     mtimes = []
     for filename in _PICKLES.values():
         try:
@@ -94,14 +103,34 @@ def _source_version():
 
 
 def get_geodata():
-    """Devuelve (iws, ramsac). Recarga solo si cambió la fuente desde la última carga."""
+    """Devuelve (iws, ramsac). Recarga solo si cambió la fuente desde la última carga.
+
+    Tolerante a cortes breves de Redis: si ya hay datos en memoria, un sello
+    ilegible o una recarga fallida devuelven los datos cacheados, sin tocar
+    _loaded_version (así la próxima llamada reintenta). Solo lanza excepción
+    si nunca se cargó nada.
+    """
     global _loaded_version, ramsac, iws
 
     with _lock:
+        cached = ramsac is not None and iws is not None
         version = _source_version()
-        if ramsac is None or iws is None or version != _loaded_version:
+
+        if cached and (version[0] is _STAMP_UNKNOWN or version == _loaded_version):
+            return iws, ramsac
+
+        try:
             new_ramsac = _load("ramsac", _PICKLES["ramsac"])
             new_iws = _load("iws", _PICKLES["iws"])
-            ramsac, iws = new_ramsac, new_iws
-            _loaded_version = version
+        except Exception as exc:
+            if not cached:
+                raise
+            logger.warning(
+                "Recarga de geodata falló; se sirven datos cacheados: %s", exc
+            )
+            return iws, ramsac
+
+        ramsac, iws = new_ramsac, new_iws
+        _loaded_version = version
+        logger.info("Geodata recargada (sello Redis=%r)", version[0])
         return iws, ramsac

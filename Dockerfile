@@ -8,8 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Instalar dependencias Python primero (aprovecha caché de Docker)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# constraints.txt fija TODAS las versiones (incl. transitivas) — ver README → Dependencias
+COPY requirements.txt constraints.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 # Copiar código de la aplicación
 COPY app/ ./app/
